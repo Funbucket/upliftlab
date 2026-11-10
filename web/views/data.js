@@ -1,6 +1,6 @@
 // Datasets: synthetic markets, public experiments and uploaded logs, with column mapping, validity checks and a profile.
-import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.24.1';
-import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.24.1';
+import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.25.0';
+import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.25.0';
 
 const ROLES = [['feature', '공변량'], ['treatment', '처치'], ['outcome', '결과'], ['cost', '비용'], ['skip', '제외']];
 const LEVELS = {ok: ['통과', 'check-ok'], warn: ['경고', 'check-warn'], bad: ['오류', 'check-bad']};
@@ -33,7 +33,7 @@ export function dataView(root, {id, query}) {
       <ul class="plain"><li>출처 · <a class="link" href="${esc(d.source)}" target="_blank" rel="noopener">${esc(new URL(d.source).hostname)}</a></li><li>원본 파일 · <a class="link" href="${esc(d.download)}" target="_blank" rel="noopener">${esc(d.download.split('/').pop())}</a></li>${d.bundled ? `<li>표본 파일 · <a class="link" href="./${esc(d.bundled)}" download>${esc(d.bundled.split('/').pop())}</a> · <a class="link" href="https://github.com/Funbucket/upliftlab/blob/main/web/data/LICENSE-criteo.md" target="_blank" rel="noopener">뽑은 방법과 라이선스</a></li>` : ''}</ul>
       ${d.stored || d.bundled ? '' : state.engine.kind === 'local' ? '<button type="button" class="btn btn-primary" data-act="fetch">원본 다운로드</button>' : `<p class="muted small">원본 사이트가 브라우저 다운로드를 막고 있어요. 원본 파일을 받아 업로드해 주세요. 형식을 인식해 자동으로 변환해요.</p><button type="button" class="btn btn-primary" data-act="upload">파일 업로드</button>`}<p class="msg" id="fetch-msg"></p></section>` : '';
     $('#data-detail', root).innerHTML = `<section class="card data-head"><div class="algo-title"><h2>${esc(d.name)}</h2><span class="tag">${tag}</span></div><p class="algo-summary">${esc(d.summary || (d.stored ? `${new Date(d.stored.createdAt).toLocaleDateString('ko-KR')} 업로드` : ''))}</p>
-      <div class="algo-actions">${ready ? `<a class="btn btn-primary" href="#/?data=${encodeURIComponent(d.id)}&amp;run=1">이 데이터로 바로 실행</a><a class="btn btn-quiet" href="#/?data=${encodeURIComponent(d.id)}">설정 바꾸고 실행</a>` : ''}${d.stored && !d.bundled && d.kind !== 'synthetic' ? `<button type="button" class="btn btn-text danger" data-act="remove">${d.kind === 'upload' ? '삭제' : '업로드 파일 삭제'}</button>` : ''}</div>
+      <div class="algo-actions">${ready ? `<a class="btn btn-primary" href="#/?data=${encodeURIComponent(d.id)}&amp;run=1">이 데이터로 바로 실행</a><a class="btn btn-quiet" href="#/?data=${encodeURIComponent(d.id)}">시뮬레이션 화면으로</a>` : ''}${d.stored && !d.bundled && d.kind !== 'synthetic' ? `<button type="button" class="btn btn-text danger" data-act="remove">${d.kind === 'upload' ? '삭제' : '업로드 파일 삭제'}</button>` : ''}</div>
       <dl class="defs compact">${fields().map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v || '—')}</dd></div>`).join('')}</dl></section>${source}<div id="profile">${loaded ? '<section class="card"><p class="muted">요약 계산 중…</p></section>' : ''}</div>`;
     if (!loaded) return;
     const profile = await profileOf(d.id).catch(() => null), box = $('#profile', root);
@@ -65,10 +65,9 @@ export function dataView(root, {id, query}) {
       return;
     }
     const info = u.info, roleOf = name => (u.mapping.treatment === name ? 'treatment' : u.mapping.outcome === name ? 'outcome' : u.mapping.cost === name ? 'cost' : u.mapping.features.includes(name) ? 'feature' : 'skip');
-    const problems = info.adapter ? [] : validate(u.mapping, info);
+    const problems = validate(u.mapping, info);
     box.innerHTML = `<section class="card mapping"><div class="card-head"><div><h2>${esc(u.file)}</h2><p>${int(info.rows)}행 · 열 ${info.header.length}개${info.rows < info.minRows ? ` · <span class="red">${int(info.minRows)}행 이상 필요</span>` : ''}</p></div><button type="button" class="btn btn-text" data-act="cancel">취소</button></div>
-      ${info.adapter === 'hillstrom' ? '<p class="notice"><b>Hillstrom 이메일 실험 형식이에요</b><span>이메일 발송(남성용·여성용)을 T=1, 미발송을 T=0, visit을 결과로 쓰고, 지역·채널은 one-hot 인코딩해요. 비용 열이 없어 발송 1건당 1로 계산해요.</span></p>'
-      : `<div class="role-help"><div><b>처치 (T)</b>0 = 대조군, 1~K = 처치 (8종류까지)</div><div><b>결과 (Yʳ)</b>value outcome</div><div><b>비용 (Yᶜ)</b>cost outcome. 없으면 처치 1건당 1</div><div><b>공변량 (X)</b>모델 입력 feature</div></div><label class="field narrow"><span class="field-label">이름</span><input type="text" class="input" maxlength="60" value="${esc(u.name)}" data-name></label>
+      ${`<div class="role-help"><div><b>처치 (T)</b>0 = 대조군, 1~K = 처치 (8종류까지)</div><div><b>결과 (Yʳ)</b>value outcome</div><div><b>비용 (Yᶜ)</b>cost outcome. 없으면 처치 1건당 1</div><div><b>공변량 (X)</b>모델 입력 feature</div></div><label class="field narrow"><span class="field-label">이름</span><input type="text" class="input" maxlength="60" value="${esc(u.name)}" data-name></label>
       <div class="table-wrap"><table class="table cols"><thead><tr><th>열</th><th>값 예시</th><th>타입</th><th>역할</th></tr></thead><tbody>${info.columns.map(c => `<tr><td><b>${esc(c.name)}</b></td><td class="muted">${c.examples.map(esc).join(', ')}${c.distinct > 4 ? ' …' : ''}</td><td class="muted">${c.binary ? '0/1' : c.arms ? `0~${c.arms} · 처치 ${c.arms}종류` : c.numeric ? '숫자' : c.categorical ? '범주형 · one-hot 인코딩' : '문자 · 고유값 과다'}${c.missing ? ` · 결측 ${int(c.missing)}개` : ''}</td>
         <td><select class="input" data-col="${esc(c.name)}">${ROLES.map(([k, t]) => `<option value="${k}" ${roleOf(c.name) === k ? 'selected' : ''} ${!c.numeric && k !== 'skip' && !(k === 'feature' && c.categorical) ? 'disabled' : ''} ${k === 'treatment' && !c.arms ? 'disabled' : ''}>${t}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`}
       ${problems.length ? `<ul class="problems">${problems.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}${u.error ? `<p class="error-text">${esc(u.error)}</p>` : ''}
@@ -83,7 +82,7 @@ export function dataView(root, {id, query}) {
     upload = {stage: 'reading', note}; uploader();
     try {
       const csv = await text(), info = await inspectFile(csv);
-      upload = {stage: 'map', file: fileName, name, text: csv, info, mapping: info.adapter ? {adapter: info.adapter} : {...info.mapping, features: [...info.mapping.features]}};
+      upload = {stage: 'map', file: fileName, name, text: csv, info, mapping: {...info.mapping, features: [...info.mapping.features]}};
     } catch (error) { upload = {stage: 'pick', error: error.message}; }
     uploader();
   }

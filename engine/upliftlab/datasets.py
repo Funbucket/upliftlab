@@ -1,15 +1,13 @@
 """Datasets: one synthetic experiment with known effects, public experiments, and uploaded CSV files.
 
 Criteo ships as a 200k-row sample (web/data, CC BY-NC-SA 4.0) so the web and the local edition start from the same real
-experiment. Hillstrom has no stated license, so it is never bundled: the local edition downloads it from the source and in
-the browser the user uploads it, and its schema is converted automatically.
+experiment.
 """
 import csv
 import gzip
 import hashlib
 import io
 import re
-import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -33,16 +31,7 @@ CRITEO = {
     'mapping': {'treatment': 'treatment', 'outcome': 'visit', 'cost': None, 'features': [f'f{i}' for i in range(12)]},
 }
 
-HILLSTROM = {
-    'id': 'public/hillstrom', 'name': 'Hillstrom 이메일 실험', 'rows': 64000,
-    'summary': '사용자 64,000명에게 이메일을 무작위 배정한 2008년 실험이에요. 2주 내 사이트 방문이 결과예요.',
-    'source': 'https://blog.minethatdata.com/2008/03/minethatdata-e-mail-analytics-and-data.html',
-    'download': 'http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv',
-    'license': '명시된 라이선스가 없어 파일을 함께 배포하지 않아요. 원본에서 받아 사용해 주세요.',
-    'treatment': '이메일 발송 (남성용·여성용) = 1, 미발송 = 0', 'outcome': 'visit · 2주 안 방문 (0/1)', 'cost': '열 없음 · 발송 1건당 1',
-}
-HILLSTROM_COLUMNS = {'recency', 'history', 'mens', 'womens', 'zip_code', 'newbie', 'channel', 'segment', 'visit'}
-PUBLIC = [CRITEO, HILLSTROM]
+PUBLIC = [CRITEO]
 
 TREATMENT_NAMES = {'t', 'treatment', 'treated', 'treat', 'w', 'group', 'coupon', 'voucher', 'promo', 'promotion', 'reward', 'offer', 'campaign', 'email', 'exposed', 'sent', 'dose', 'arm', 'variant'}
 OUTCOME_NAMES = {'y', 'outcome', 'conversion', 'converted', 'convert', 'retained', 'retention', 'yr', 'visit', 'visited', 'return', 'returned', 'response', 'purchase', 'purchased', 'bought', 'order', 'ordered', 'click', 'clicked', 'revenue', 'target', 'label'}
@@ -134,30 +123,11 @@ def guess(cols):
     return {'treatment': treatment, 'outcome': outcome, 'cost': cost, 'features': features}
 
 
-def detect(header):
-    return 'hillstrom' if HILLSTROM_COLUMNS <= set(header) else None
-
-
 def inspect(text):
     """Column summary, a suggested mapping and a preview, for the upload screen."""
     header, body = read(text)
     cols = columns(header, body)
-    adapter = detect(header)
-    return {'rows': len(body), 'header': header, 'columns': cols, 'adapter': adapter, 'preview': body[:8],
-            'mapping': {'adapter': adapter} if adapter else guess(cols), 'minRows': MIN_ROWS}
-
-
-def _hillstrom(header, body):
-    i = {h: k for k, h in enumerate(header)}
-    get = lambda name: [r[i[name]].strip() for r in body]  # noqa: E731
-    seg, zips, channel = get('segment'), get('zip_code'), get('channel')
-    t = np.asarray([s != 'No E-Mail' for s in seg], dtype=np.int64)
-    y = np.asarray(get('visit'), dtype=np.float64)
-    numeric = {name: np.asarray(get(name), dtype=np.float64) for name in ('recency', 'history', 'mens', 'womens', 'newbie')}
-    X = np.column_stack([numeric['recency'], numeric['history'], numeric['mens'], numeric['womens'], numeric['newbie'],
-                         [z == 'Urban' for z in zips], [z == 'Surburban' for z in zips], [c == 'Phone' for c in channel], [c == 'Web' for c in channel]]).astype(np.float64)
-    features = ['recency', 'history', 'mens', 'womens', 'newbie', 'zip=Urban', 'zip=Suburban', 'channel=Phone', 'channel=Web']
-    return X, t, y, t.astype(np.float64), features, {'adapter': 'hillstrom', 'treatment': 'segment ≠ No E-Mail', 'outcome': 'visit', 'cost': None, 'features': features}
+    return {'rows': len(body), 'header': header, 'columns': cols, 'preview': body[:8], 'mapping': guess(cols), 'minRows': MIN_ROWS}
 
 
 def _required(name, role, cells):
@@ -199,34 +169,29 @@ def parse(text, mapping=None):
     header, body = read(text)
     if len(body) < MIN_ROWS:
         raise ValueError(f'{MIN_ROWS:,}행 이상이 필요해요. 지금은 {len(body):,}행이에요.')
-    adapter = (mapping or {}).get('adapter') if mapping else detect(header)
-    if adapter == 'hillstrom':
-        X, t, y, cost, features, used = _hillstrom(header, body)
-        filled = {}
-    else:
-        mapping = mapping or guess(columns(header, body))
-        index = {h: k for k, h in enumerate(header)}
-        for role in ('treatment', 'outcome'):
-            if mapping.get(role) not in index:
-                raise ValueError(f'{"처치" if role == "treatment" else "결과"} 열을 선택해 주세요.')
-        chosen = [f for f in mapping.get('features') or [] if f in index]
-        if not chosen:
-            raise ValueError('공변량 열을 하나 이상 선택해 주세요.')
-        cells = lambda column: [r[index[column]] for r in body]  # noqa: E731
-        treatment = _required(mapping['treatment'], '처치', cells(mapping['treatment']))
-        if not _arms(np.unique(treatment).tolist()):
-            raise ValueError(f'처치 열 {mapping["treatment"]}은 0(대조군)과 1, 2처럼 0부터 이어지는 정수여야 해요. 처치는 {MAX_TREATMENTS}종류까지 쓸 수 있어요.')
-        t, y = treatment.astype(np.int64), _required(mapping['outcome'], '결과', cells(mapping['outcome']))
-        cost = _required(mapping['cost'], '비용', cells(mapping['cost'])) if mapping.get('cost') else (t > 0).astype(np.float64)  # no cost column: one unit per treated row
-        features, parts, filled = [], [], {}
-        for column in chosen:
-            names, part, gaps = _feature(column, cells(column))
-            features += names
-            parts.append(part)
-            if gaps:
-                filled[column] = gaps
-        X = np.hstack(parts)
-        used = {'adapter': None, 'treatment': mapping['treatment'], 'outcome': mapping['outcome'], 'cost': mapping.get('cost'), 'features': chosen}
+    mapping = mapping or guess(columns(header, body))
+    index = {h: k for k, h in enumerate(header)}
+    for role in ('treatment', 'outcome'):
+        if mapping.get(role) not in index:
+            raise ValueError(f'{"처치" if role == "treatment" else "결과"} 열을 선택해 주세요.')
+    chosen = [f for f in mapping.get('features') or [] if f in index]
+    if not chosen:
+        raise ValueError('공변량 열을 하나 이상 선택해 주세요.')
+    cells = lambda column: [r[index[column]] for r in body]  # noqa: E731
+    treatment = _required(mapping['treatment'], '처치', cells(mapping['treatment']))
+    if not _arms(np.unique(treatment).tolist()):
+        raise ValueError(f'처치 열 {mapping["treatment"]}은 0(대조군)과 1, 2처럼 0부터 이어지는 정수여야 해요. 처치는 {MAX_TREATMENTS}종류까지 쓸 수 있어요.')
+    t, y = treatment.astype(np.int64), _required(mapping['outcome'], '결과', cells(mapping['outcome']))
+    cost = _required(mapping['cost'], '비용', cells(mapping['cost'])) if mapping.get('cost') else (t > 0).astype(np.float64)  # no cost column: one unit per treated row
+    features, parts, filled = [], [], {}
+    for column in chosen:
+        names, part, gaps = _feature(column, cells(column))
+        features += names
+        parts.append(part)
+        if gaps:
+            filled[column] = gaps
+    X = np.hstack(parts)
+    used = {'treatment': mapping['treatment'], 'outcome': mapping['outcome'], 'cost': mapping.get('cost'), 'features': chosen}
     if t.min() == t.max():
         raise ValueError('처치군과 대조군이 모두 필요해요.')
     return SimpleNamespace(fingerprint=fingerprint(body), X=X, t=t, y=y, cost=cost, features=features, mapping=used, filled=filled)
@@ -301,21 +266,13 @@ def bundled_path(name):
     raise FileNotFoundError(f'{name} 파일이 없어요. 패키지를 다시 설치해 주세요.')
 
 
-def fetch(dataset_id, cache=Path.home() / '.cache' / 'upliftlab' / 'datasets'):
-    """Local edition only: read a bundled sample, or download a public dataset from its source once and keep it in the user's cache."""
+def fetch(dataset_id):
+    """Local edition: the CSV text of a public dataset's bundled sample."""
     meta = next((d for d in PUBLIC if d['id'] == dataset_id), None)
     if meta is None:
-        raise ValueError(f'내려받을 수 없는 데이터예요: {dataset_id}')
-    if meta.get('bundled'):
-        with gzip.open(bundled_path(meta['bundled']), 'rt', encoding='utf-8') as f:
-            return f.read()
-    path = cache / (dataset_id.split('/')[-1] + '.csv')
-    if not path.exists():
-        cache.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(meta['download'], timeout=60) as response:
-            data = response.read()
-        path.write_bytes(data)
-    return path.read_text(encoding='utf-8', errors='replace')
+        raise ValueError(f'없는 공개 데이터예요: {dataset_id}')
+    with gzip.open(bundled_path(meta['bundled']), 'rt', encoding='utf-8') as f:
+        return f.read()
 
 
 SAMPLE_NAME = 'upliftlab-예시-쿠폰실험.csv'

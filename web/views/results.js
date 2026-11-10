@@ -1,9 +1,9 @@
 // The right panel: the leaderboard, the Exploit group's covariates, per-cycle metrics and the row-level log.
-import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.24.1';
-import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.24.1';
-import {lineChart, interpolate, responsive, interval} from '../charts.js?v=0.24.1';
-import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from '../summary.js?v=0.24.1';
-import {downloadReport, printReport, copySummary} from '../report.js?v=0.24.1';
+import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.25.0';
+import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.25.0';
+import {lineChart, interpolate, responsive, interval} from '../charts.js?v=0.25.0';
+import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from '../summary.js?v=0.25.0';
+import {downloadReport, printReport, copySummary} from '../report.js?v=0.25.0';
 
 const USE = {train: '학습', validation: '검증', test: '오프라인 평가'};
 const upliftK = run => (isBudget(run) ? run.plan?.budget ?? run.config?.budget : run.plan?.target ?? run.config?.target);
@@ -13,7 +13,7 @@ function segment(cls, label, n, total) {
   return `<span class="${cls}" style="width:${(n / total * 100).toFixed(2)}%" data-tip="${esc(text)}" role="img" aria-label="${esc(text)}" tabindex="0"></span>`;
 }
 
-export function resultsPanel(el, heroEl, run) {
+export function resultsPanel(el, run) {
   const W = wordsFor(datasetOf(run));
   const binary = () => W.binary || !!run.cycles[0]?.trace?.y.every(y => y === 0 || y === 1);
   const rate = v => (!isNum(v) ? '—' : binary() ? `${(v * 100).toFixed(1)}%` : fix(v, 3));
@@ -24,22 +24,17 @@ export function resultsPanel(el, heroEl, run) {
   const selectedId = () => (armsOf(run).some(a => a.id === selected) ? selected : leaderId());
   const cycleNow = () => run.cycles.find(c => c.cycle === cycleAt) || run.cycles.at(-1);
 
-  // First visit: one claim, the way to try it on your own data, and the precomputed answer right under it.
-  heroEl.innerHTML = run.example ? `<h1>같은 예산이라도, 대상을 고르는 모델에 따라 증분 성과가 달라져요</h1>
-    <p>실험 데이터를 넣으면 uplift 모델마다 운영 환경처럼 대상을 고르고 효과를 재는 과정을 시뮬레이션해서, 같은 예산에서 증분 성과가 가장 큰 모델을 찾아 줘요. 아래는 ${esc(W.data)} 데이터로 미리 돌려 본 결과예요.</p>
-    <div class="hero-actions"><a class="btn btn-primary" href="#/data?upload=1">내 데이터로 비교하기</a><a class="btn btn-quiet" href="#/data?upload=1&amp;sample=1">예시 실험 파일로 해 보기</a><span class="hero-note" id="hero-note"></span></div>` : '';
-  heroEl.hidden = !run.example;
-  const heroNote = () => { const n = $('#hero-note', heroEl); if (n) n.textContent = state.engine.kind === 'local' ? '내 컴퓨터의 Python에서 실행해요. 데이터는 이 컴퓨터 밖으로 나가지 않아요.' : '설치는 필요 없어요. 데이터는 이 컴퓨터 밖으로 나가지 않아요.'; };
-  heroNote();
-  el.innerHTML = `<div id="run-bar" class="run-bar"></div><div id="run-live"></div><div id="run-verdict"></div><details class="how" id="how"></details>
+  // The answer stays on top: the run, its progress and the conclusion with the bars. Everything else is one click away.
+  el.innerHTML = `<div id="run-bar" class="run-bar"></div><div id="run-live"></div><div id="run-verdict"></div>
+    <details class="more" id="more"><summary><b>순위표와 분석 자세히 보기</b><small>지표별 순위 · 1위가 고른 사용자 · 사이클별 지표 · Cost Curve · 시뮬레이션 구조</small></summary><div class="more-body">
     <section class="sec" id="sec-board"></section><div id="sec-arms"></div><section class="sec" id="sec-picked"></section><section class="sec" id="sec-cycle"></section><section class="sec" id="sec-rows"></section>
     <section class="sec"><div class="sec-head"><div><h2>사이클별 효율 개선</h2><p>사이클마다 Exploit의 비용 효율이 Explore보다 몇 % 높은지예요. 0%는 Explore benchmark와 같은 수준이에요.</p></div></div><div class="legend" id="gain-legend"></div><div id="gain-chart" class="chart-box"></div></section>
     <section class="sec"><div class="sec-head"><div><h2 id="curve-title">Cost Curve</h2><p id="curve-note"></p></div><div class="sec-tools"><div class="seg" role="radiogroup" aria-label="곡선"><button type="button" role="radio" aria-checked="true" data-curve="cost">Cost Curve</button><button type="button" role="radio" aria-checked="false" data-curve="qini">Qini Curve</button></div></div></div><div class="legend" id="curve-legend"></div><div id="curve-chart" class="chart-box"></div></section>
-    <details class="fold" id="defs"></details>`;
+    <details class="how" id="how"></details><details class="fold" id="defs"></details></div></details>`;
 
   function bar() {
     const p = run.plan, c = run.config, status = {starting: '준비 중', running: '실행 중', paused: '일시정지', stopped: '중단된 실행', failed: '실행 실패', done: '실행 완료'}[run.status] || '실행 완료';
-    const label = run.example ? '예시 결과 · 사전 계산' : run.imported ? `결과 파일 · ${run.imported}` : `${status} · ${when(run.createdAt)}`;
+    const label = run.example ? '미리 돌려 본 예시' : run.imported ? `결과 파일 · ${run.imported}` : `${status} · ${when(run.createdAt)}`;
     const meta = [W.data, `알고리즘 ${armsOf(run).length}개`, `${p?.cycles ?? c.cycles}사이클`, p ? `사이클당 ${int(p.pool)}명` : null, `ε ${share(p?.explore ?? c.explore)}`, selectionLabel(p ?? c), p?.treatments > 1 ? `처치 ${p.treatments}종류` : null, (p?.baseLearner ?? c.baseLearner) === 'tree' ? 'Gradient Boosting' : null, `시드 ${p?.seed ?? c.seed}`,
       run.runtime ? (run.runtime === 'local' ? '로컬' : '브라우저') : null, p?.implementation ? (p.implementation === 'econml' ? 'EconML' : 'scikit-learn 경량판') : null, isNum(run.elapsed) ? duration(run.elapsed) : null].filter(Boolean);
     const differs = !running() && c && !sameConfig(state.draft, c);
@@ -308,7 +303,7 @@ export function resultsPanel(el, heroEl, run) {
   cleanups.push(responsive($('#gain-chart', el), gainChart), responsive($('#curve-chart', el), curveChart));
   cleanups.push(subscribe(kind => {
     if (kind === 'progress') { if (state.live === run) { live(); board(); } return; }
-    if (kind === 'loading' || kind === 'engine') { if (state.live === run) live(); if (kind === 'engine') heroNote(); }
+    if (kind === 'loading' || kind === 'engine') { if (state.live === run) live(); }
     if (kind === 'draft') { how(); bar(); return; }
     if (kind === 'run' && state.live === run) { if (!basisChosen) basis = hasTruth(run) ? 'truth' : 'observed'; bar(); live(); verdict(); board(); detail(); charts(); return; }
     if (kind === 'runs' || kind === 'engine' || kind === 'algorithms' || kind === 'datasets') { bar(); how(); }

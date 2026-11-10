@@ -13,7 +13,7 @@ web.add_argument('--no-browser', action='store_true', help='do not open the brow
 check = sub.add_parser('check', help='list the libraries an algorithm file uses, then fit it once on synthetic data')
 check.add_argument('file', metavar='FILE.py')
 run = sub.add_parser('run', help='run a head-to-head comparison without the UI and write the result as JSON')
-run.add_argument('--data', default='public/criteo', help='public/criteo (the bundled 200k sample) | public/hillstrom (downloaded once) | synthetic/base | path to a CSV')
+run.add_argument('--data', default='public/criteo', help='public/criteo (the bundled 200k-row sample) | synthetic/base | path to a CSV')
 run.add_argument('--algorithms', default='all', help='comma-separated built-in ids, or "all"')
 run.add_argument('--algorithm', action='append', default=[], metavar='FILE.py', help='add your own algorithm file (repeatable)')
 run.add_argument('--cycles', type=int, default=8)

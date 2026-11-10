@@ -131,7 +131,7 @@ def sample_csv():
 
 
 def fetch_dataset(id):
-    """Local edition: a bundled sample or a download from the source. The browser loads bundled files itself (add_dataset)."""
+    """Local edition: a bundled sample. The browser fetches the same file itself and passes it to add_dataset."""
     if state['runtime'] != 'local':
         raise ValueError('원본 사이트가 브라우저 다운로드를 막고 있어요. 파일을 받아 업로드하거나 로컬에서 실행해 주세요.')
     meta = next(d for d in datasets.PUBLIC if d['id'] == id)

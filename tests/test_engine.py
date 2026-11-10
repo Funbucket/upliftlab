@@ -149,7 +149,7 @@ def make_csv(n=12000, seed=3):
 def test_uploaded_csv_is_mapped_and_replayed_without_truth():
     text = make_csv()
     seen = call('inspect_csv', csv=text)
-    assert seen['rows'] == 12000 and seen['adapter'] is None
+    assert seen['rows'] == 12000 and 'adapter' not in seen
     assert seen['mapping'] == {'treatment': 'treatment', 'outcome': 'converted', 'cost': 'cost', 'features': ['a', 'b', 'c']}
     added = call('add_dataset', id='upload/test', csv=text, name='test.csv')
     assert added['profile']['rows'] == 12000 and [f['name'] for f in added['profile']['features']] == ['a', 'b', 'c']
@@ -416,21 +416,6 @@ def test_text_columns_become_features_and_blanks_are_filled():
         datasets.parse(text.replace(',1,0,note 5', ',,0,note 5').replace(',0,0,note 5', ',,0,note 5').replace(',1,1,note 5', ',,1,note 5').replace(',0,1,note 5', ',,1,note 5'), {'treatment': 't', 'outcome': 'y', 'features': ['visits']})
 
 
-def test_hillstrom_schema_is_converted_automatically():
-    rng = np.random.default_rng(5)
-    segs, zips, channels = ['Mens E-Mail', 'Womens E-Mail', 'No E-Mail'], ['Urban', 'Surburban', 'Rural'], ['Phone', 'Web', 'Multichannel']
-    rows = ['recency,history_segment,history,mens,womens,zip_code,newbie,channel,segment,visit,conversion,spend']
-    for i in range(3000):
-        rows.append(f'{rng.integers(1, 13)},"2) $100 - $200",{rng.random() * 500:.2f},{rng.integers(0, 2)},{rng.integers(0, 2)},{zips[i % 3]},{rng.integers(0, 2)},{channels[i % 3]},{segs[i % 3]},{rng.integers(0, 2)},0,0')
-    text = '\n'.join(rows)
-    assert call('inspect_csv', csv=text)['adapter'] == 'hillstrom'
-    added = call('add_dataset', id='public/hillstrom', csv=text, name='Hillstrom')
-    assert abs(added['profile']['treatedShare'] - 2 / 3) < .01 and len(added['profile']['features']) == 9
-    assert added['mapping']['outcome'] == 'visit' and abs(added['profile']['costT'] - 1) < 1e-9
-    with pytest.raises(Exception, match='브라우저'):
-        bridge.fetch_dataset('public/hillstrom')
-
-
 def test_algorithm_files_import_only_common_libraries():
     """Built-ins and templates are files a data scientist can copy anywhere: no engine imports, nothing hidden."""
     imports = lambda code: {n.split('.')[0] for node in ast.walk(ast.parse(code)) for n in ([x.name for x in node.names] if isinstance(node, ast.Import) else [node.module or ''] if isinstance(node, ast.ImportFrom) else [])}  # noqa: E731
@@ -643,7 +628,7 @@ def test_criteo_sample_is_bundled_mapped_and_still_randomized():
     assert .008 < ate < .012, 'the visit uplift of the full Criteo data is about +1.0%p'
     checks = {c['id']: c['level'] for c in datasets.quality(data.X, data.t, data.y, data.cost, data.features)}
     assert set(checks.values()) == {'ok'}, checks
-    assert [d['id'] for d in datasets.catalog()] == ['synthetic/base', 'public/criteo', 'public/hillstrom']
+    assert [d['id'] for d in datasets.catalog()] == ['synthetic/base', 'public/criteo']
     bridge.state.update(runtime='local')
     try:
         assert bridge.fetch_dataset('public/criteo')['mapping']['outcome'] == 'visit'

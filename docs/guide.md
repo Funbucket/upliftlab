@@ -1,6 +1,6 @@
 # 사용 안내
 
-README보다 자세한 내용이에요. 처음이라면 [uplift-lab.vercel.app](https://uplift-lab.vercel.app)에서 `예시 실험 파일로 해 보기`부터 눌러 보세요.
+README보다 자세한 내용이에요. 처음이라면 [uplift-lab.vercel.app](https://uplift-lab.vercel.app)에서 `비교 시작`부터 눌러 보세요. 데이터 고르기, 예산 정하기, 비교 시작 세 단계뿐이고, 나머지 설정은 `고급 설정`에 기본값으로 들어 있어요.
 
 ## 어떻게 비교하나요
 
@@ -23,7 +23,6 @@ EconML은 Linux x86_64, macOS, Windows x86_64용 휠이 있어서 `pip install`�
 ## 데이터
 
 - **Criteo 광고 실험**(기본): Criteo AI Lab의 Uplift Prediction Dataset v2.1(1,398만 명, 처치 85%)에서 처치군 100,000명과 대조군 99,837명을 뽑은 표본이에요. 뽑을 확률이 처치 여부에만 달려 있어서 표본도 무작위 배정 실험이고, 처치 비율만 50%가 돼요. 결과는 `visit`(사이트 방문), 공변량은 `f0`–`f11`이고 비용 열은 없어요(처치 1건당 1). 라이선스는 [CC BY-NC-SA 4.0](../web/data/LICENSE-criteo.md)이에요.
-- **Hillstrom 이메일 실험**: 64,000명. 명시된 라이선스가 없어 함께 배포하지 않아요. 로컬은 원본에서 자동으로 받고, 웹은 받은 CSV를 올리면 형식을 알아서 바꿔요.
 - **합성 쿠폰 실험**: 공변량 4개로 만든 단순한 식이에요. 쿠폰 없이 돌아올 확률, 쿠폰으로 늘어나는 확률, 쿠폰 비용이 공변량에 따라 정해지고([scenario.py](../engine/upliftlab/scenario.py)), 사용자마다 실제 효과를 알아서 참값으로 순위를 매겨요.
 
 ## 선정 방식
@@ -83,7 +82,7 @@ upliftlab check my_model.py                            # 쓰는 라이브러리 
 
 | 옵션 | 기본값 | 뜻 |
 |---|---|---|
-| `--data` | `public/criteo` | `public/criteo`, `public/hillstrom`, `synthetic/base`, 또는 CSV 경로 |
+| `--data` | `public/criteo` | `public/criteo`, `synthetic/base`, 또는 CSV 경로 |
 | `--algorithms` | `all` | 기본 알고리즘 id를 쉼표로 |
 | `--algorithm` | | 내 알고리즘 파일 (여러 번 쓸 수 있어요) |
 | `--mode` | `budget` | `budget`, `quantile`, `knapsack`, `roi`, `validation` |

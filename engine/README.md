@@ -9,7 +9,7 @@ pip install git+https://github.com/Funbucket/upliftlab
 upliftlab                                    # http://127.0.0.1:4180 을 브라우저로 열어요 (upliftlab serve --no-browser로 끄기)
 upliftlab check my_model.py                  # 쓰는 라이브러리 확인 + 합성 데이터로 한 번 학습
 upliftlab run --data public/criteo --algorithms all --cycles 8 --out result.json
-upliftlab run --data public/hillstrom --algorithm my_model.py   # 공개 데이터는 원본에서 받아 ~/.cache/upliftlab에 둬요
+upliftlab run --data synthetic/base --algorithm my_model.py    # 참값이 있는 합성 데이터로 내 알고리즘 비교
 upliftlab run --data my_experiment.csv --mode budget --budget .3
 ```
 
@@ -100,10 +100,9 @@ scores = model.predict(X_new)
 - 합성 쿠폰 실험 `synthetic/base`: 특성 4개, 사이클마다 2만 명. 모든 사용자의 처치했을 때와 안 했을 때 결과를 알고 있어 참값을 계산한다. 식은 `scenario.py`의 `SyntheticScenario` 설명에 있다. 화면에는 나오지 않는 `synthetic/tiers`는 처치가 3종류(쿠폰 ×0.5, ×1, ×1.5)인 같은 시장으로, 다중 처치 테스트에 쓴다.
 - Criteo 광고 실험 `public/criteo`: `web/data/criteo-uplift-sample.csv.gz`(199,837행, CC BY-NC-SA 4.0). 패키지에는 `upliftlab/ui/data/`로 들어간다. 로컬은 `datasets.fetch`가 이 파일을 읽고, 브라우저는 화면이 같은 파일을 받아 `add_dataset`으로 넘긴다.
 - 실험 기록 재생: 무작위 배정 실험 CSV(1,000행 이상). 열 역할(처치 0 = 대조군, 1~K = 처치(8종류까지), 결과, 비용, 특성)은 이름으로 추측하고(`coupon`, `returned`, `coupon_cost`처럼 이름 안의 단어도 본다) 화면에서 바꿀 수 있다. 비용 열이 없으면 처치 1건당 1로 계산한다. 범주형 열은 고유값 20개까지 one-hot 인코딩하고, 공변량 결측값은 중앙값으로 대체한다. `quality()`가 처치 비율, 공변량 균형(SMD), ATEᶜ, 결과, 표본 크기를 검사해 `profile.checks`로 돌려준다. 행을 섞어 사이클마다 겹치지 않는 풀(최대 2만 행, 사이클마다 400행 이상)로 나누고(분할은 파일 내용과 시드로만 정해진다), Explore·Exploit 안의 처치/대조는 기록된 값을 그대로 쓴다. 기록된 처치가 무작위 배정이 아니면 결과를 인과 효과로 해석할 수 없다.
-- 공개 데이터 `public/hillstrom`: 라이선스가 명시되지 않아 파일을 함께 배포하지 않는다. 로컬은 원본에서 받아 캐시에 두고, 브라우저에서는 사용자가 받은 파일을 올리면 형식을 알아보고 변환한다(이메일 발송 = 처치, visit = 결과, 지역·채널 0/1 특성).
 - AUCC: 점수 상위 f%마다 n₁·(Ȳ처치 − Ȳ대조)를 이은 곡선을 최대 비용·결과로 정규화한 면적. 무작위 순위가 약 0.5이며 0.5는 하한이 아니다. 테스트 셋이 작으면 크게 흔들린다.
 - Qini: 처치 대상 비율 f에 따른 증분 성과 곡선과 무작위 대각선 사이 넓이를 전체 처치 시 증분 성과로 나눈 값. 무작위 순위가 약 0이다. Uplift@k: 점수 상위 k의 ATEʳ(k는 q 또는 예산 비율). 둘 다 비용을 보지 않는다.
 
 ## 검증
 
-`npm test`(= `python3 -m pytest tests/test_engine.py`, 먼저 저장소 루트에서 `pip install -e ".[dev]"`)가 공유되는 사용자·Explore 그룹, 학습 창, AUCC 기준선, 나란히 비교의 순위와 재현성, 1위와 차이 구간, 기본 알고리즘의 빠른 검사, 코드 오류 처리, CSV 매핑, Hillstrom 변환, 알고리즘 파일이 엔진을 import하지 않는지, 라이브러리 검사와 안내, PEP 723 의존성, 시작 틀의 빠른 검사(설치되지 않은 라이브러리의 틀은 건너뜀), Qini·Uplift@k 정의, 예산 소진과 예산 제약 순위, Gradient Boosting에서 X와 T의 차이, 처치가 공변량에 달린 로그에서 DML의 효과 추정, 다중 처치의 합성·업로드 실행을 확인한다.
+`npm test`(= `python3 -m pytest tests/test_engine.py`, 먼저 저장소 루트에서 `pip install -e ".[dev]"`)가 공유되는 사용자·Explore 그룹, 학습 창, AUCC 기준선, 나란히 비교의 순위와 재현성, 1위와 차이 구간, 기본 알고리즘의 빠른 검사, 코드 오류 처리, CSV 매핑, 알고리즘 파일이 엔진을 import하지 않는지, 라이브러리 검사와 안내, PEP 723 의존성, 시작 틀의 빠른 검사(설치되지 않은 라이브러리의 틀은 건너뜀), Qini·Uplift@k 정의, 예산 소진과 예산 제약 순위, Gradient Boosting에서 X와 T의 차이, 처치가 공변량에 달린 로그에서 DML의 효과 추정, 다중 처치의 합성·업로드 실행을 확인한다.

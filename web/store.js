@@ -1,8 +1,8 @@
 // App state: the engine, algorithms, datasets and runs. Views subscribe and re-render when something changes.
-import {ENGINE_FILES} from './engine-files.js?v=0.24.1';
-import {CATALOG, EXAMPLE} from './catalog.js?v=0.24.1';
-import {createRuntime} from './runtime.js?v=0.24.1';
-import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.24.1';
+import {ENGINE_FILES} from './engine-files.js?v=0.25.0';
+import {CATALOG, EXAMPLE} from './catalog.js?v=0.25.0';
+import {createRuntime} from './runtime.js?v=0.25.0';
+import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.25.0';
 
 const USER_KEY = 'upliftlab.algorithms.v15', RUN_KEY = 'upliftlab.runs.v16', DRAFT_KEY = 'upliftlab.draft.v22', MAX_RUNS = 12, KEEP_TRACES = 3;
 const SETTINGS = {mode: 'quantile', budget: .4, efficiency: .2, baseLearner: 'ridge'};  // results made before these settings existed used these values
@@ -102,7 +102,7 @@ export const datasetReady = d => !!d && (d.kind === 'synthetic' || !!d.bundled |
 export const inspectFile = text => call('inspect_csv', {csv: text});
 export const sampleFile = () => call('sample_csv');  // {name, csv}: an example randomized coupon experiment
 export async function addDataset({text, name, mapping}) {
-  const id = mapping?.adapter === 'hillstrom' ? 'public/hillstrom' : 'upload/' + crypto.randomUUID().slice(0, 8);
+  const id = 'upload/' + crypto.randomUUID().slice(0, 8);
   const out = await call('add_dataset', {id, csv: text, name, mapping});
   const rec = {id, name: id.startsWith('public/') ? dataset(id).name : name, csv: text, mapping: out.mapping, profile: out.profile, createdAt: Date.now()};
   await idb('readwrite', s => s.put(rec), () => memory.set(id, rec));
@@ -157,7 +157,6 @@ export async function profileOf(id) {
 export function wordsFor(id) {
   const d = dataset(id);
   if (d?.kind === 'synthetic') return {data: d.name, outcome: '리텐션', incR: '증분 리텐션', unit: '명', cost: '보상 비용', binary: true};
-  if (d?.id === 'public/hillstrom') return {data: d.name, outcome: '방문', incR: '증분 방문', unit: '명', cost: '발송 비용', binary: true};
   if (d?.id === 'public/criteo') return {data: d.name, outcome: '방문', incR: '증분 방문', unit: '명', cost: '광고 대상 인원', binary: true};
   const m = d?.stored?.mapping, outcome = m?.outcome || '결과';
   return {data: d?.name || id || '데이터', outcome, incR: `증분 ${outcome}`, unit: '', cost: m ? m.cost || '처치 건수' : '비용', binary: false};
