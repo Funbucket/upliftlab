@@ -1,6 +1,6 @@
 {
   "name": "upliftlab-playground",
-  "version": "0.24.0",
+  "version": "0.24.1",
   "private": true,
   "type": "module",
   "description": "upliftlab: simulate which uplift model gives the most incremental outcome for the same budget, in a production-like explore/exploit loop, and share the result as a report",

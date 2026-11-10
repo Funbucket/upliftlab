@@ -1,6 +1,6 @@
 // The left panel: dataset, algorithms, settings and the run button.
-import {$, $$, esc, int, share, duration, go, BRIEF, MAX_ALGORITHMS, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.24.0';
-import {state, subscribe, dataset, datasetReady, running, startRun, estimate, algorithm, unavailable, setDraft, selectAlgorithm, planOf} from '../store.js?v=0.24.0';
+import {$, $$, esc, int, share, duration, go, BRIEF, MAX_ALGORITHMS, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.24.1';
+import {state, subscribe, dataset, datasetReady, running, startRun, estimate, algorithm, unavailable, setDraft, selectAlgorithm, planOf} from '../store.js?v=0.24.1';
 
 const CYCLES = [4, 6, 8, 10, 12];
 const worst = d => { const levels = (d.stored?.profile?.checks || []).map(c => c.level); return levels.includes('bad') ? 'bad' : levels.includes('warn') ? 'warn' : null; };

@@ -1,7 +1,8 @@
 // Algorithm library: read the built-in code, clone it, write your own, and run a quick check before a full simulation.
-import {$, esc, isNum, int, fix, pp, share, duration, download, go, BRIEF} from '../lib.js?v=0.24.0';
-import {state, subscribe, algorithm, addAlgorithm, updateAlgorithm, removeAlgorithm, quickCheck, templates, unavailable, selectAlgorithm} from '../store.js?v=0.24.0';
-import {createEditor} from '../vendor/editor.js?v=0.24.0';
+import {$, esc, isNum, int, fix, pp, share, duration, download, go, BRIEF} from '../lib.js?v=0.24.1';
+import {state, subscribe, algorithm, addAlgorithm, updateAlgorithm, removeAlgorithm, quickCheck, templates, unavailable, selectAlgorithm} from '../store.js?v=0.24.1';
+import {createEditor} from '../vendor/editor.js?v=0.24.1';
+import {ENGINE_FILES} from '../engine-files.js?v=0.24.1';
 
 const checks = new Map();  // algorithm id → last quick-check result, kept while the page is open
 const PEP723 = `# /// script
@@ -20,15 +21,30 @@ function libs(list) {
   return `<div class="libs"><span class="libs-label">라이브러리</span>${list.length ? list.map(lib).join('') : '<span class="muted">Python 표준 라이브러리만 사용</span>'}</div>`;
 }
 
+// A built-in has two files: the EconML one (algorithms/<id>.py, run locally) and the scikit-learn lite one (algorithms/lite/<id>.py,
+// run in the browser, which has no EconML). Both ship in the engine bundle, so the page can show either without the engine.
+function variantsOf(a) {
+  const econml = `upliftlab/algorithms/${a.id}.py`, lite = `upliftlab/algorithms/lite/${a.id}.py`;
+  return a.builtin && ENGINE_FILES[econml] && ENGINE_FILES[lite] ? {econml: {file: econml, code: ENGINE_FILES[econml]}, lite: {file: lite, code: ENGINE_FILES[lite]}} : null;
+}
+const PACKAGE = {sklearn: 'scikit-learn'};
+// The libraries a file imports, read from its text, for the variant this runtime does not run (no install status to report).
+function importsOf(code, runtimeLocal) {
+  const mods = [...new Set([...code.matchAll(/^(?:from|import)\s+(\w+)/gm)].map(m => m[1]))];
+  return mods.map(m => ({package: PACKAGE[m] || m, status: m === 'econml' && !runtimeLocal ? 'local' : null}));
+}
+
 export function algorithmsView(root, {id, query}) {
   const a = algorithm(id) || state.algorithms[0];
-  let editor = null;
+  const vars = variantsOf(a);
+  let editor = null, view = vars ? 'econml' : null;  // the EconML file first: it is what the algorithm is; the lite file is what a browser runs
+  const runs = () => (a.implementation === 'econml' ? 'econml' : 'lite');
   root.innerHTML = `<section class="page algos"><a class="back" href="#/">← 시뮬레이션</a><header class="page-head row"><div><h1>알고리즘</h1><p>알고리즘은 <code>class Model</code>을 담은 Python 파일이에요. scikit-learn, LightGBM, PyTorch 같은 라이브러리를 그대로 import하고, 시뮬레이션은 이 코드를 그대로 실행해요.</p></div>
     <div class="menu"><button type="button" class="btn btn-primary" data-act="new" aria-haspopup="true" aria-expanded="false">알고리즘 추가</button><div class="menu-pop new-pop" id="new-pop" hidden></div></div></header>
     <div class="algo-layout"><nav class="card algo-nav" id="algo-nav" aria-label="알고리즘 목록"></nav>
     <div class="algo-main"><section class="card algo-head" id="algo-head"></section>
       <p class="contract-line"><code>class Model</code>에 <code>fit(train, validation)</code>과 <code>predict(X)</code>를 구현해요. <code>predict</code>의 점수가 높은 순서로 Exploit 그룹을 선정해요.</p>
-      <section class="card editor-card"><div class="editor-bar"><code>${esc(a.builtin ? a.file : `내 알고리즘 · ${a.id}.py`)}</code><span class="tag ${a.builtin ? '' : 'tag-blue'}">${a.builtin ? '읽기 전용' : '편집 가능 · 브라우저에 저장'}</span><span class="spacer"></span><span class="muted small">⌘/Ctrl + Enter 빠른 검사</span></div><div class="code" id="code"></div><div class="editor-status" id="editor-status" role="status"></div></section>
+      <section class="card editor-card"><div class="editor-bar">${vars ? '<div class="seg seg-impl" role="radiogroup" aria-label="구현"><button type="button" role="radio" data-view="econml">EconML</button><button type="button" role="radio" data-view="lite">웹 경량판</button></div>' : ''}<code id="code-path">${esc(a.builtin ? a.file : `내 알고리즘 · ${a.id}.py`)}</code><span class="tag ${a.builtin ? '' : 'tag-blue'}">${a.builtin ? '읽기 전용' : '편집 가능 · 브라우저에 저장'}</span><span class="spacer"></span><span class="muted small">⌘/Ctrl + Enter 빠른 검사</span></div><div class="code" id="code"></div><div class="editor-status" id="editor-status" role="status"></div></section>
       <section class="card" id="algo-check"></section>
       <details class="card fold" id="contract"></details>
     </div></div></section>`;
@@ -40,21 +56,32 @@ export function algorithmsView(root, {id, query}) {
       <h3 class="group">내 알고리즘<span>${mine.length}</span></h3>${mine.length ? mine.map(item).join('') : '<p class="muted small pad">복제하거나 추가한 알고리즘이 여기에 표시돼요.</p>'}`;
   }
   // Built-ins run on EconML locally and as scikit-learn lite files in the browser, which has no EconML.
-  function impl(x) {
-    if (!x.builtin || x.id === 'random_baseline') return '';
-    const econml = `https://github.com/Funbucket/upliftlab/blob/main/engine/upliftlab/algorithms/${encodeURIComponent(x.id)}.py`;
-    return `<p class="algo-impl">${x.implementation === 'econml' ? 'EconML(PyWhy)로 구현한 파일이에요. 웹에서는 브라우저에 EconML이 없어서 같은 방법을 scikit-learn으로 쓴 경량판이 돌아가요.'
-      : `웹 경량판이에요. 브라우저에는 EconML이 없어서 같은 방법을 scikit-learn으로 구현했어요. 로컬(upliftlab)에서는 <a class="link" href="${econml}" target="_blank" rel="noopener">EconML판</a>이 돌아가요.`}</p>`;
+  function impl() {
+    if (!vars) return '';
+    return `<p class="algo-impl">EconML(PyWhy)로 구현했어요. 브라우저에는 EconML이 없어서, 웹에서는 같은 방법을 scikit-learn으로 쓴 경량판이 돌아가요. 지금 이 환경에서는 <b>${runs() === 'econml' ? 'EconML' : '웹 경량판'}</b> 코드로 시뮬레이션해요.</p>`;
+  }
+  function showView() {
+    if (!vars) return;
+    for (const b of root.querySelectorAll('[data-view]')) b.setAttribute('aria-checked', String(b.dataset.view === view));
+    $('#code-path', root).textContent = vars[view].file;
+    editor?.setValue(vars[view].code);
   }
   function head() {
     $('#algo-head', root).innerHTML = `<div class="algo-title"><h2>${esc(a.name)}</h2>${a.builtin ? '<span class="tag">기본 제공</span>' : '<span class="tag tag-blue">내 코드</span>'}${a.base ? `<span class="muted small">원본 · ${esc(algorithm(a.base)?.name || a.base)}</span>` : ''}</div>
-      <p class="algo-summary">${esc(a.summary || (a.builtin ? '' : 'docstring의 첫 문단이 여기에 표시돼요.'))}</p>${impl(a)}${libs(a.libraries)}
+      <p class="algo-summary">${esc(a.summary || (a.builtin ? '' : 'docstring의 첫 문단이 여기에 표시돼요.'))}</p>${impl()}${libs(vars && view !== runs() ? importsOf(vars[view].code, state.engine.kind === 'local') : a.libraries)}
       <div class="algo-actions">${a.builtin ? '<button type="button" class="btn btn-primary" data-act="clone">복제해서 수정</button>' : ''}<a class="btn ${a.builtin ? 'btn-quiet' : 'btn-primary'}" href="#/?algo=${encodeURIComponent(a.id)}">시뮬레이션에 추가</a><button type="button" class="btn btn-quiet" data-act="check">빠른 검사</button>
       ${a.builtin ? '' : '<button type="button" class="btn btn-quiet" data-act="clone">복제</button>'}<button type="button" class="btn btn-quiet" data-act="download">.py 내려받기</button>${a.builtin ? '' : '<button type="button" class="btn btn-text danger" data-act="delete">삭제</button>'}</div>`;
   }
   function status() {
     const el = $('#editor-status', root);
-    if (a.builtin) { el.className = 'editor-status'; el.textContent = '기본 제공 코드는 읽기 전용이에요. 복제하면 수정할 수 있어요.'; return; }
+    if (a.builtin) {
+      el.className = 'editor-status';
+      const where = state.engine.kind === 'local' ? '이 컴퓨터' : '웹';
+      el.textContent = !vars ? '기본 제공 코드는 읽기 전용이에요. 복제하면 수정할 수 있어요.'
+        : view === runs() ? `${where}에서 시뮬레이션하면 이 코드가 돌아가요. 복제하면 수정할 수 있어요.`
+          : view === 'econml' ? '로컬(upliftlab)에서 돌아가는 코드예요. 웹에서는 ‘웹 경량판’ 탭의 코드가 돌아가요.' : '브라우저에서 돌아가는 경량판이에요. 이 컴퓨터에서는 ‘EconML’ 탭의 코드가 돌아가요.';
+      return;
+    }
     el.className = 'editor-status ' + (a.ok === false ? 'is-error' : a.ok ? 'is-ok' : '');
     el.innerHTML = a.ok === false ? `${a.line ? `<button type="button" class="btn btn-text" data-line="${a.line}">${a.line}번째 줄</button> · ` : ''}${esc(a.error)}` : a.ok ? '저장됨 · class Model 확인 · 이름은 코드의 NAME 값'
       : state.engine.loading ? `저장됨 · 라이브러리 로딩 중 · ${esc(state.engine.loading)}` : '저장됨 · 확인 중…';
@@ -66,7 +93,7 @@ export function algorithmsView(root, {id, query}) {
       box.innerHTML = `<div class="card-head"><div><h2>빠른 검사 중</h2><p>${state.engine.loading ? `라이브러리 로딩 중 · ${esc(state.engine.loading)}` : '기본 시장의 Explore 데이터로 학습 중이에요.'}</p></div></div>${last?.total ? `<div class="meter"><i style="transform:scaleX(${(last.step / last.total).toFixed(3)})"></i></div><p class="muted small">${int(last.step)} / ${int(last.total)}${isNum(last.loss) ? ` · loss ${fix(last.loss, 4)}` : ''}</p>` : '<div class="meter is-busy"><i></i></div>'}`;
       return;
     }
-    if (!r) { box.innerHTML = `<div class="card-head"><div><h2>빠른 검사</h2><p>전체 시뮬레이션 전에 기본 시장의 Explore 데이터(약 12,000행)로 한 번 학습하고 평가해요. 오류가 있으면 줄 번호를 표시해요.</p></div></div>`; return; }
+    if (!r) { box.innerHTML = `<div class="card-head"><div><h2>빠른 검사</h2><p>전체 시뮬레이션 전에 합성 데이터의 Explore 행(약 12,000행)으로 한 번 학습하고 평가해요. 오류가 있으면 줄 번호를 표시해요.${vars ? ` 이 환경에서 돌아가는 ${runs() === 'econml' ? 'EconML' : '웹 경량판'} 코드로 검사해요.` : ''}</p></div></div>`; return; }
     if (!r.ok) { box.innerHTML = `<div class="card-head"><div><h2>빠른 검사 · 실패</h2></div></div><p class="error-text">${r.line ? `<button type="button" class="btn btn-text" data-line="${r.line}">${r.line}번째 줄</button> · ` : ''}${esc(r.error)}</p>`; return; }
     const losses = r.trace.filter(m => isNum(m.loss));
     box.innerHTML = `<div class="card-head"><div><h2>빠른 검사 · 통과</h2><p>train ${int(r.split.train)}행 · validation ${int(r.split.validation)}행 · test ${int(r.split.test)}행. 시뮬레이션의 재학습과 같은 방식이에요.</p></div></div>
@@ -101,7 +128,8 @@ export function algorithmsView(root, {id, query}) {
   }
   const closeMenu = () => { const pop = $('#new-pop', root); if (!pop.hidden) { pop.hidden = true; $('[data-act="new"]', root).setAttribute('aria-expanded', 'false'); } };
   nav(); head(); status(); result(); contract();
-  editor = createEditor($('#code', root), a.code, code => { if (!updateAlgorithm(a, code)) $('#editor-status', root).textContent = '저장 공간이 부족해요 · .py로 내려받아 두세요'; else status(); }, () => runCheck(), !!a.builtin);
+  editor = createEditor($('#code', root), vars ? vars[view].code : a.code, code => { if (a.builtin) return; if (!updateAlgorithm(a, code)) $('#editor-status', root).textContent = '저장 공간이 부족해요 · .py로 내려받아 두세요'; else status(); }, () => runCheck(), !!a.builtin);
+  showView();
 
   async function runCheck() {
     if (state.activity) return;
@@ -115,16 +143,17 @@ export function algorithmsView(root, {id, query}) {
     go('#/algorithms/' + made.id);
   };
   root.addEventListener('click', e => {
-    const t = e.target.closest('[data-act], [data-line], [data-template]');
+    const t = e.target.closest('[data-act], [data-line], [data-template], [data-view]');
     if (!t?.closest('.menu')) closeMenu();
     if (!t) return;
+    if (t.dataset.view) { view = t.dataset.view; showView(); head(); status(); return; }
     if (t.dataset.line) { editor.goTo(Number(t.dataset.line)); return; }
     if (t.dataset.template) { e.preventDefault(); const s = templates().find(x => x.id === t.dataset.template), made = addAlgorithm({name: s.name, code: s.code}); selectAlgorithm(made.id); go('#/algorithms/' + made.id); return; }
     const act = t.dataset.act;
     if (act === 'new') { const pop = $('#new-pop', root), open = pop.hidden; if (open) starters(); pop.hidden = !open; t.setAttribute('aria-expanded', String(open)); }
     else if (act === 'clone') clone();
     else if (act === 'check') runCheck();
-    else if (act === 'download') download((a.builtin ? a.id : a.name.replace(/[^\w가-힣-]+/g, '_')) + '.py', editor.getValue(), 'text/x-python');
+    else if (act === 'download') download((a.builtin ? a.id + (view === 'lite' ? '_lite' : '') : a.name.replace(/[^\w가-힣-]+/g, '_')) + '.py', editor.getValue(), 'text/x-python');
     else if (act === 'delete' && confirm(`‘${a.name}’ 알고리즘을 삭제할까요? 이 브라우저에서만 삭제돼요.`)) { removeAlgorithm(a.id); go('#/algorithms'); }
   });
   const off = subscribe(kind => {

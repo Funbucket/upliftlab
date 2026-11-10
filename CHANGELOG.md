@@ -1,5 +1,9 @@
 # 변경 기록
 
+## v0.24.1
+
+- **알고리즘 코드 화면:** 기본 알고리즘은 EconML 코드를 먼저 보여 줘요. `웹 경량판` 탭으로 브라우저에서 실제로 돌아가는 scikit-learn 코드를 볼 수 있고, 지금 환경에서 어느 코드로 시뮬레이션하는지 함께 적어요. 복제와 `.py 내려받기`는 보고 있는 탭의 코드를 써요.
+
 ## v0.24
 
 - **EconML:** 기본 알고리즘을 EconML(PyWhy)로 다시 썼어요. T-Learner는 `TLearner`, X-Learner는 `XLearner`, R-Learner는 `NonParamDML`, DML은 `LinearDML`, Duality R-Learner는 `NonParamDML` 두 개를 써요. 로컬 설치에 EconML이 함께 들어가요(ARM Linux와 ARM Windows는 제외).
