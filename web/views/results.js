@@ -1,9 +1,9 @@
 // The right panel: the leaderboard, the Exploit group's covariates, per-cycle metrics and the row-level log.
-import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.22.0';
-import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.22.0';
-import {lineChart, interpolate, responsive, interval} from '../charts.js?v=0.22.0';
-import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from '../summary.js?v=0.22.0';
-import {downloadReport, printReport, copySummary} from '../report.js?v=0.22.0';
+import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.23.0';
+import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.23.0';
+import {lineChart, interpolate, responsive, interval} from '../charts.js?v=0.23.0';
+import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from '../summary.js?v=0.23.0';
+import {downloadReport, printReport, copySummary} from '../report.js?v=0.23.0';
 
 const USE = {train: '학습', validation: '검증', test: '오프라인 평가'};
 const upliftK = run => (isBudget(run) ? run.plan?.budget ?? run.config?.budget : run.plan?.target ?? run.config?.target);
@@ -24,11 +24,14 @@ export function resultsPanel(el, heroEl, run) {
   const selectedId = () => (armsOf(run).some(a => a.id === selected) ? selected : leaderId());
   const cycleNow = () => run.cycles.find(c => c.cycle === cycleAt) || run.cycles.at(-1);
 
-  heroEl.innerHTML = run.example ? `<h1>Uplift 알고리즘을 운영 환경처럼 시뮬레이션하고 비교해요</h1>
-    <p>실험 데이터를 넣으면, 어떤 모델로 대상을 고를 때 같은 예산에서 증분 성과가 가장 큰지 운영 환경처럼 시뮬레이션해요. 사이클마다 Explore와 Exploit을 나눠 타겟팅, 온라인 평가, 재학습을 반복해요.</p>
-    <ol class="hero-steps"><li><b>데이터셋과 알고리즘 선택</b><span>기본 제공 데이터나 직접 실험한 로그 CSV를 쓰고, 비교할 알고리즘을 골라요.</span></li><li><b>시뮬레이션 실행</b><span>같은 사용자와 같은 Explore 그룹으로 모든 알고리즘을 브라우저에서 실행해요. 데이터는 밖으로 나가지 않아요.</span></li><li><b>결과 공유</b><span>순위와 결론을 확인하고, 보고서로 내려받아 팀에 공유해요.</span></li></ol>` : '';
+  // First visit: one claim, the way to try it on your own data, and the precomputed answer right under it.
+  heroEl.innerHTML = run.example ? `<h1>같은 예산이라도, 대상을 고르는 모델에 따라 증분 성과가 달라져요</h1>
+    <p>실험 데이터를 넣으면 uplift 모델마다 운영 환경처럼 대상을 고르고 효과를 재는 과정을 시뮬레이션해서, 같은 예산에서 증분 성과가 가장 큰 모델을 찾아 줘요. 아래는 기본 시장으로 미리 돌려 본 결과예요.</p>
+    <div class="hero-actions"><a class="btn btn-primary" href="#/data?upload=1">내 데이터로 비교하기</a><a class="btn btn-quiet" href="#/data?upload=1&amp;sample=1">예시 실험 파일로 해 보기</a><span class="hero-note" id="hero-note"></span></div>` : '';
   heroEl.hidden = !run.example;
-  el.innerHTML = `<details class="how" id="how" ${run.example ? 'open' : ''}></details><div id="run-bar" class="run-bar"></div><div id="run-live"></div><div id="run-verdict"></div>
+  const heroNote = () => { const n = $('#hero-note', heroEl); if (n) n.textContent = state.engine.kind === 'local' ? '내 컴퓨터의 Python에서 실행해요. 데이터는 이 컴퓨터 밖으로 나가지 않아요.' : '설치는 필요 없어요. 데이터는 이 컴퓨터 밖으로 나가지 않아요.'; };
+  heroNote();
+  el.innerHTML = `<div id="run-bar" class="run-bar"></div><div id="run-live"></div><div id="run-verdict"></div><details class="how" id="how"></details>
     <section class="sec" id="sec-board"></section><div id="sec-arms"></div><section class="sec" id="sec-picked"></section><section class="sec" id="sec-cycle"></section><section class="sec" id="sec-rows"></section>
     <section class="sec"><div class="sec-head"><div><h2>사이클별 효율 개선</h2><p>사이클마다 Exploit의 비용 효율이 Explore보다 몇 % 높은지예요. 0%는 Explore benchmark와 같은 수준이에요.</p></div></div><div class="legend" id="gain-legend"></div><div id="gain-chart" class="chart-box"></div></section>
     <section class="sec"><div class="sec-head"><div><h2 id="curve-title">Cost Curve</h2><p id="curve-note"></p></div><div class="sec-tools"><div class="seg" role="radiogroup" aria-label="곡선"><button type="button" role="radio" aria-checked="true" data-curve="cost">Cost Curve</button><button type="button" role="radio" aria-checked="false" data-curve="qini">Qini Curve</button></div></div></div><div class="legend" id="curve-legend"></div><div id="curve-chart" class="chart-box"></div></section>
@@ -305,7 +308,7 @@ export function resultsPanel(el, heroEl, run) {
   cleanups.push(responsive($('#gain-chart', el), gainChart), responsive($('#curve-chart', el), curveChart));
   cleanups.push(subscribe(kind => {
     if (kind === 'progress') { if (state.live === run) { live(); board(); } return; }
-    if (kind === 'loading' || kind === 'engine') { if (state.live === run) live(); }
+    if (kind === 'loading' || kind === 'engine') { if (state.live === run) live(); if (kind === 'engine') heroNote(); }
     if (kind === 'draft') { how(); bar(); return; }
     if (kind === 'run' && state.live === run) { if (!basisChosen) basis = hasTruth(run) ? 'truth' : 'observed'; bar(); live(); verdict(); board(); detail(); charts(); return; }
     if (kind === 'runs' || kind === 'engine' || kind === 'algorithms' || kind === 'datasets') { bar(); how(); }

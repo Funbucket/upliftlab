@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ffffff"><title>upliftlab · Uplift 알고리즘 비교</title><meta name="description" content="Uplift 알고리즘을 운영 환경처럼 시뮬레이션하고 비교해요. 알고리즘을 수정·추가하고, 데이터셋을 업로드할 수 있어요. 브라우저 또는 로컬 Python·GPU에서 실행해요."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23191f28'/%3E%3Cpath d='M8 22l6-6 4 4 6-9' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"><link rel="stylesheet" href="./styles.css?v=0.22.0"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ffffff"><title>upliftlab · Uplift 알고리즘 비교</title><meta name="description" content="Uplift 알고리즘을 운영 환경처럼 시뮬레이션하고 비교해요. 알고리즘을 수정·추가하고, 데이터셋을 업로드할 수 있어요. 브라우저 또는 로컬 Python·GPU에서 실행해요."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23191f28'/%3E%3Cpath d='M8 22l6-6 4 4 6-9' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"><link rel="stylesheet" href="./styles.css?v=0.23.0"></head>
 <body>
 <header class="top"><div class="top-inner">
   <a class="brand" href="#/">upliftlab<span>Uplift 알고리즘 비교</span></a>
@@ -11,15 +11,13 @@
     <div class="menu-pop runtime-pop" id="runtime-pop" role="dialog" aria-label="실행 환경" hidden>
       <h3>현재 실행 환경</h3><p id="runtime-now"></p>
       <h3>로컬에서 실행</h3><p>같은 화면과 엔진을 내 컴퓨터의 Python에서 실행해요. 설치된 패키지와 GPU를 모두 쓸 수 있고, 브라우저보다 큰 데이터를 다룰 수 있어요.</p>
-      <pre class="mono">git clone https://github.com/Funbucket/upliftlab
-cd upliftlab
-pip install -e engine     # NumPy, scikit-learn
-upliftlab serve           # http://127.0.0.1:4180 이 열려요</pre>
+      <pre class="mono">pip install git+https://github.com/Funbucket/upliftlab
+upliftlab                 # 브라우저에 이 화면이 열려요</pre>
       <p>화면 없이 비교만 돌리고, 결과 JSON을 실행 기록에서 열 수도 있어요.</p>
       <pre class="mono">upliftlab run --data my_experiment.csv --out result.json</pre>
       <p><a class="link" href="https://github.com/Funbucket/upliftlab" target="_blank" rel="noopener">GitHub에서 소스와 설명 보기</a></p>
     </div></div>
 </div></header>
 <main id="app"></main>
-<script type="module" src="./app.js?v=0.22.0"></script>
+<script type="module" src="./app.js?v=0.23.0"></script>
 </body></html>

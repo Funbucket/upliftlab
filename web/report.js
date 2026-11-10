@@ -1,10 +1,10 @@
 // The shareable report: one self-contained HTML file with the conclusion, the ranking, two charts, the conditions and how to
 // read them. It holds aggregates only, never uploaded rows. The same page prints to PDF, and a three-line summary goes to chat.
-import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.22.0';
-import {wordsFor, dataset, algorithm} from './store.js?v=0.22.0';
-import {CATALOG} from './catalog.js?v=0.22.0';
-import {lineChart} from './charts.js?v=0.22.0';
-import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from './summary.js?v=0.22.0';
+import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.23.0';
+import {wordsFor, dataset, algorithm} from './store.js?v=0.23.0';
+import {CATALOG} from './catalog.js?v=0.23.0';
+import {lineChart} from './charts.js?v=0.23.0';
+import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from './summary.js?v=0.23.0';
 
 const SITE = 'https://uplift-lab.vercel.app';
 const day = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -96,7 +96,15 @@ h2{font-size:17px;letter-spacing:-.01em}
 .v-rank{display:inline-block;padding:1px 8px;border-radius:999px;background:#191f28;color:#fff;font-size:12px;font-weight:700}
 .verdict h2{margin-top:6px;font-size:22px}
 .v-line{margin-top:2px;font-size:16px;color:#333d4b}
-.v-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:12px;border:1px solid #e5e8eb;border-radius:8px;overflow:hidden}
+.v-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:12px}.v-body.is-single{grid-template-columns:minmax(0,1fr)}
+.v-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-content:start;border:1px solid #e5e8eb;border-radius:8px;overflow:hidden}
+.v-body:not(.is-single) .v-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.v-body:not(.is-single) .v-kpis div:last-child:nth-child(odd){grid-column:1/-1}
+.v-bars{margin:0;padding:9px 12px 12px;border:1px solid #e5e8eb;border-radius:8px}.v-bars figcaption{font-size:12px;color:#4e5968}
+.v-bars ol{list-style:none;display:grid;gap:6px;margin-top:8px;padding:0;font-size:12.5px;color:#333d4b}.v-bars li+li{margin-top:0}
+.v-bars li{display:grid;grid-template-columns:minmax(0,120px) minmax(0,1fr) 64px;align-items:center;gap:8px;line-height:1.35}
+.vb-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vb-name small{display:inline;margin-left:4px;font-size:11px;color:#8b95a1}
+.vb-track i{display:block;height:9px;min-width:2px;border-radius:0 4px 4px 0;background:#b4d2fb}.vb-val{text-align:right;font-variant-numeric:tabular-nums}
+.is-lead .vb-name,.is-lead .vb-val{font-weight:700}.is-lead .vb-val{color:#1b64da}.is-lead .vb-track i{background:#3182f6}.is-base .vb-track i{background:#b0b8c1}
 .v-kpis div{padding:9px 12px;box-shadow:-1px 0 0 #e5e8eb,0 -1px 0 #e5e8eb}
 .v-kpis dt{font-size:12px;color:#4e5968}.v-kpis dd{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}.v-kpis div:first-child dd{color:#1b64da}
 .v-kpis small{display:block;font-size:11.5px;color:#8b95a1}
@@ -119,7 +127,7 @@ figure{margin-top:6px}
 ul{margin-top:8px;padding-left:18px;font-size:13.5px;color:#333d4b}li+li{margin-top:4px}
 footer{margin-top:36px;padding-top:14px;border-top:1px solid #e5e8eb;font-size:12px;color:#8b95a1}
 a{color:#1b64da}
-@media(max-width:600px){main{padding:24px 16px 40px}.conds{grid-template-columns:minmax(0,1fr)}.v-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}table{font-size:12px}}
+@media(max-width:600px){main{padding:24px 16px 40px}.conds,.v-body{grid-template-columns:minmax(0,1fr)}.v-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}table{font-size:12px}}
 @page{size:A4;margin:14mm}
 @media print{main{padding:0;max-width:none}.scroll{overflow:visible}section,.verdict,table,figure{break-inside:avoid}a{color:inherit;text-decoration:none}}`;
 

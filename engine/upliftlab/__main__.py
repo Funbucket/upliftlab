@@ -3,9 +3,9 @@ import json
 import sys
 from pathlib import Path
 
-parser = argparse.ArgumentParser(prog='upliftlab', description='upliftlab local edition: the same UI and engine as uplift-lab.vercel.app, on your own Python')
-sub = parser.add_subparsers(dest='command', required=True)
-web = sub.add_parser('serve', help='open the web UI on localhost and run the engine natively')
+parser = argparse.ArgumentParser(prog='upliftlab', description='upliftlab local edition: the same UI and engine as uplift-lab.vercel.app, on your own Python. Run it with no command to open the UI.')
+sub = parser.add_subparsers(dest='command', metavar='{serve,run,check}')
+web = sub.add_parser('serve', help='open the web UI on localhost and run the engine natively (the default)')
 web.add_argument('--host', default='127.0.0.1')
 web.add_argument('--port', type=int, default=4180)
 web.add_argument('--web', help='folder with the UI (defaults to web/ in a source checkout, else the UI inside the package)')
@@ -29,6 +29,8 @@ run.add_argument('--out', help='write the result JSON here (open it in the web U
 
 def main(argv=None):
     args = parser.parse_args(argv)
+    if args.command is None:  # plain `upliftlab` opens the UI
+        args = parser.parse_args(['serve'])
     if args.command == 'serve':
         from .server import serve
         serve(args.host, args.port, args.web, open_browser=not args.no_browser)
@@ -86,9 +88,26 @@ def main(argv=None):
             auc = '—' if auc is None else f'{auc:.3f}'
             ms = '—' if ms is None else f'{ms:.0f}'
             print(f"{s['rank']:<5}{s['name'][:25]:<26}{gain:>22}{band:>22}{auc:>8}{q:>8}{ms:>9}")
+        print('\n' + conclusion(result, args.mode))
         if args.out:
             Path(args.out).write_text(json.dumps({'format': 'upliftlab.run/1', **result}, ensure_ascii=False))
             print(f'\nwrote {args.out}', file=sys.stderr)
+
+
+def conclusion(result, mode):
+    """One line under the table: who won, by how much over Random, on which basis."""
+    arms, by = result['summary']['arms'], result['summary']['by']
+    lead = min(arms, key=lambda s: s['rank'])
+    random = next((s for s in arms if s['arm'] == 'random_baseline' and s is not lead), None)
+    basis = 'true effect, known for synthetic data' if by.startswith('truth') else 'observed: treated minus control'
+    if lead.get(by) is None:
+        return f"{lead['name']} ranks first ({basis})."
+    if by.lower().endswith('incr'):
+        line = f"{lead['name']} ranks first with {lead[by]:,.0f} incremental outcome"
+        if random and random.get(by):
+            line += f", {lead[by] - random[by]:+,.0f} ({lead[by] / random[by] - 1:+.0%}) over Random"
+        return line + (' for the same budget' if mode in ('budget', 'knapsack') else '') + f' ({basis}).'
+    return f"{lead['name']} ranks first with {lead[by]:+.1%} cost efficiency over random selection ({basis})."
 
 
 if __name__ == '__main__':

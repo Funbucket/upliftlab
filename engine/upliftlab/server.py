@@ -1,9 +1,11 @@
 """Local edition: serve the same web UI and run the engine natively (your CPU/GPU, your Python packages).
 
-    python -m upliftlab serve            # http://127.0.0.1:4180
+    upliftlab                            # http://127.0.0.1:4180, opened in your browser
 """
+import errno
 import json
 import mimetypes
+import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -12,6 +14,9 @@ from urllib.parse import urlparse
 from . import bridge
 
 LOCK = threading.Lock()
+# The UI is ES modules and a web font. Some systems map .js to text/plain (the Windows registry can), which browsers refuse
+# for module scripts, so the types are set here instead of read from the system.
+TYPES = {'.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.woff2': 'font/woff2', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8'}
 
 
 def detect_devices():
@@ -43,7 +48,7 @@ def make_handler(web_root):
                 return
             body = file.read_bytes()
             self.send_response(200)
-            self.send_header('Content-Type', mimetypes.guess_type(file.name)[0] or 'application/octet-stream')
+            self.send_header('Content-Type', TYPES.get(file.suffix) or mimetypes.guess_type(file.name)[0] or 'application/octet-stream')
             self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-cache')
             self.end_headers()
@@ -79,23 +84,39 @@ def make_handler(web_root):
 
 
 def ui_root(web=None):
-    """The UI to serve: --web if given, else web/ in a source checkout, else the single-file build shipped in the package."""
+    """The UI to serve: --web if given, else the web/ folder installed with the package (upliftlab/ui), else web/ in a source checkout."""
     here = Path(__file__).resolve().parent
-    for folder in ([Path(web)] if web else [here.parents[1] / 'web', here / 'ui']):
+    for folder in ([Path(web)] if web else [here / 'ui', here.parents[1] / 'web']):
         if (folder / 'index.html').is_file():
             return folder.resolve()
-    raise SystemExit(f'web UI not found{f" at {web}" if web else ""}. Install a released package (pip install upliftlab), run from a source checkout, or pass --web.')
+    raise SystemExit(f'web UI not found{f" at {web}" if web else ""}. Install with pip install git+https://github.com/Funbucket/upliftlab, run from a source checkout, or pass --web.')
+
+
+class Server(ThreadingHTTPServer):
+    allow_reuse_address = os.name != 'nt'  # on Windows the reuse flag lets two servers share a port, so a busy port would go unnoticed
+
+
+def bind(host, port, handler, tries=10):
+    """The first free port from `port` on, so a second upliftlab (or anything else on 4180) is not an error."""
+    for p in range(port, port + tries):
+        try:
+            return Server((host, p), handler)
+        except OSError as error:
+            if error.errno not in (errno.EADDRINUSE, getattr(errno, 'WSAEADDRINUSE', -1), 10048):
+                raise
+    raise SystemExit(f'ports {port}-{port + tries - 1} are busy. Pass another one: upliftlab serve --port 8080')
 
 
 def serve(host='127.0.0.1', port=4180, web=None, open_browser=True):
+    from . import __version__
     web_root = ui_root(web)
     devices = detect_devices()
     bridge.state.update(runtime='local', device=devices[0], devices=devices)
-    server = ThreadingHTTPServer((host, port), make_handler(web_root))
-    url = f'http://{host}:{port}'
-    print(f'upliftlab local · {url} · device {devices[0]} · Ctrl+C to stop', flush=True)
+    server = bind(host, port, make_handler(web_root))
+    url = f'http://{host}:{server.server_address[1]}'
+    print(f'upliftlab {__version__} is running at {url} (device: {devices[0]})\n'
+          'Your data and code stay on this computer. Press Ctrl+C to stop.', flush=True)
     if open_browser:
-        import threading
         import webbrowser
         threading.Timer(.6, lambda: webbrowser.open(url)).start()
     try:

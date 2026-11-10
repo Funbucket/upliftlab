@@ -1,7 +1,7 @@
 // Reading a run: the basis it ranks on, its algorithms, the leader's Exploit group, and the conclusion.
 // The results panel and the shared report both use these, so the app and the report say the same thing.
-import {esc, isNum, int, pct, pp, josa, colorsFor} from './lib.js?v=0.22.0';
-import {algorithm} from './store.js?v=0.22.0';
+import {esc, isNum, int, pct, pp, josa, colorsFor} from './lib.js?v=0.23.0';
+import {algorithm} from './store.js?v=0.23.0';
 
 export const FIELDS = {
   truth: {gain: 'truthGain', R: 'truthR', base: 'baseTruthR', incR: 'truthIncR', incC: 'truthIncC', aucc: 'auccTruth', qini: 'qiniTruth', upliftAt: 'upliftAtTruth', name: '참값'},
@@ -76,11 +76,21 @@ export function verdictOf(run, W) {
   const sub = [`${F.name} 기준(${BASIS_NOTE[basis]}), ${pooledFrom(lead)} 합산이에요.`, check, flip].filter(Boolean).join(' ');
   const strip = t => t.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
   const plain = [`1위 ${lead.name} · ${strip(line)}`, kpis.map(k => `${strip(k.label)} ${k.value}${k.note ? ` (${strip(k.note)})` : ''}`).join(' · '), strip(sub)].join('\n');
-  return {name: lead.name, line, kpis, sub, hint, plain, basis};
+  return {name: lead.name, line, kpis, sub, hint, plain, basis, bars: barsOf(run, W, F, volume, ranked)};
+}
+
+// The ranking at a glance: one bar per algorithm on the value it is ranked by. The leader takes the accent color and Random is
+// marked as the baseline, so the gap a model makes is the first thing the eye compares. Plain text; verdictHtml escapes it.
+function barsOf(run, W, F, volume, ranked) {
+  const value = s => (volume ? s[F.incR] : s[F.gain]), rows = ranked.filter(s => isNum(value(s))), top = Math.max(0, ...rows.map(value));
+  if (rows.length < 2 || top <= 0) return null;
+  const title = volume ? `알고리즘별 ${W.incR}${isBudget(run) ? ' · 모두 같은 예산' : ''}` : '알고리즘별 비용 효율 개선 · Explore 대비';
+  return {title, rows: rows.map(s => ({name: s.name, value: volume ? `${int(value(s))}${W.unit}` : pct(value(s)), width: Math.max(0, value(s)) / top * 100, lead: s.rank === 1, base: s.arm === 'random_baseline'}))};
 }
 
 export function verdictHtml(V) {
+  const B = V.bars, bars = B ? `<figure class="v-bars"><figcaption>${esc(B.title)}</figcaption><ol>${B.rows.map(r => `<li class="${r.lead ? 'is-lead' : r.base ? 'is-base' : ''}"><span class="vb-name">${esc(r.name)}${r.base ? '<small>기준선</small>' : ''}</span><span class="vb-track"><i style="width:${r.width.toFixed(1)}%"></i></span><span class="vb-val">${esc(r.value)}</span></li>`).join('')}</ol></figure>` : '';
   return `<div class="verdict"><span class="v-rank">1위</span><h2>${esc(V.name)}</h2><p class="v-line">${V.line}</p>
-    <dl class="v-kpis">${V.kpis.map(k => `<div><dt>${k.label}</dt><dd>${esc(k.value)}</dd>${k.note ? `<small>${k.note}</small>` : ''}</div>`).join('')}</dl>
+    <div class="v-body ${bars ? '' : 'is-single'}"><dl class="v-kpis">${V.kpis.map(k => `<div><dt>${k.label}</dt><dd>${esc(k.value)}</dd>${k.note ? `<small>${k.note}</small>` : ''}</div>`).join('')}</dl>${bars}</div>
     <p class="v-sub">${V.sub}</p>${V.hint ? `<p class="v-hint">${V.hint}</p>` : ''}</div>`;
 }

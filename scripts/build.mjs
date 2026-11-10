@@ -27,6 +27,5 @@ for(const match of fontCSS.matchAll(/url\(\.\/files\/([^)]*)\)/g)){const data=aw
 const bundledCSS=css.replace("@import url('./fonts/font.css');",inlineFonts);
 const output=html.replace(/<link rel="stylesheet" href="\.\/styles\.css(?:\?[^"]*)?">/,()=>`<style>${bundledCSS}</style>`).replace(/<script type="module" src="\.\/app\.js(?:\?[^"]*)?"><\/script>/,()=>`<script type="module">${code.replace(/<\/script/gi,'<\\/script')}</script>`);
 await mkdir(path.join(root,'dist'),{recursive:true});await writeFile(path.join(root,'dist/index.html'),output);
-// The pip package serves the same single file, so `upliftlab serve` works without a source checkout.
-await mkdir(path.join(root,'engine/upliftlab/ui'),{recursive:true});await writeFile(path.join(root,'engine/upliftlab/ui/index.html'),output);
-console.log('Built standalone UI. The Python engine loads Pyodide from the CDN, or runs natively via python -m upliftlab serve.');
+// The pip package ships web/ itself (see pyproject.toml), so the local edition needs no build step.
+console.log('Built dist/index.html. The Python engine loads Pyodide from the CDN, or runs natively via upliftlab.');

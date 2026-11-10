@@ -1,6 +1,6 @@
 // Datasets: synthetic markets, public experiments and uploaded logs, with column mapping, validity checks and a profile.
-import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.22.0';
-import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.22.0';
+import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.23.0';
+import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.23.0';
 
 const ROLES = [['feature', '공변량'], ['treatment', '처치'], ['outcome', '결과'], ['cost', '비용'], ['skip', '제외']];
 const LEVELS = {ok: ['통과', 'check-ok'], warn: ['경고', 'check-warn'], bad: ['오류', 'check-bad']};
@@ -33,7 +33,7 @@ export function dataView(root, {id, query}) {
       <ul class="plain"><li>출처 · <a class="link" href="${esc(d.source)}" target="_blank" rel="noopener">${esc(new URL(d.source).hostname)}</a></li><li>원본 파일 · <a class="link" href="${esc(d.download)}" target="_blank" rel="noopener">${esc(d.download.split('/').pop())}</a></li></ul>
       ${d.stored ? '' : state.engine.kind === 'local' ? '<button type="button" class="btn btn-primary" data-act="fetch">원본 다운로드</button>' : `<p class="muted small">원본 사이트가 브라우저 다운로드를 막고 있어요. 원본 파일을 받아 업로드해 주세요. 형식을 인식해 자동으로 변환해요.</p><button type="button" class="btn btn-primary" data-act="upload">파일 업로드</button>`}<p class="msg" id="fetch-msg"></p></section>` : '';
     $('#data-detail', root).innerHTML = `<section class="card data-head"><div class="algo-title"><h2>${esc(d.name)}</h2><span class="tag">${tag}</span></div><p class="algo-summary">${esc(d.summary || (d.stored ? `${new Date(d.stored.createdAt).toLocaleDateString('ko-KR')} 업로드` : ''))}</p>
-      <div class="algo-actions">${ready ? `<a class="btn btn-primary" href="#/?data=${encodeURIComponent(d.id)}">시뮬레이션에 사용</a>` : ''}${d.stored && d.kind !== 'synthetic' ? `<button type="button" class="btn btn-text danger" data-act="remove">${d.kind === 'upload' ? '삭제' : '업로드 파일 삭제'}</button>` : ''}</div>
+      <div class="algo-actions">${ready ? `<a class="btn btn-primary" href="#/?data=${encodeURIComponent(d.id)}&amp;run=1">이 데이터로 바로 실행</a><a class="btn btn-quiet" href="#/?data=${encodeURIComponent(d.id)}">설정 바꾸고 실행</a>` : ''}${d.stored && d.kind !== 'synthetic' ? `<button type="button" class="btn btn-text danger" data-act="remove">${d.kind === 'upload' ? '삭제' : '업로드 파일 삭제'}</button>` : ''}</div>
       <dl class="defs compact">${fields().map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v || '—')}</dd></div>`).join('')}</dl></section>${source}<div id="profile">${loaded ? '<section class="card"><p class="muted">요약 계산 중…</p></section>' : ''}</div>`;
     if (!loaded) return;
     const profile = await profileOf(d.id).catch(() => null), box = $('#profile', root);
@@ -87,7 +87,9 @@ export function dataView(root, {id, query}) {
     } catch (error) { upload = {stage: 'pick', error: error.message}; }
     uploader();
   }
+  const loadSample = () => load(async () => (await sampleFile()).csv, 'upliftlab-예시-쿠폰실험.csv', '예시 쿠폰 실험', state.engine.status === 'ready' ? '예시 파일 만드는 중…' : '엔진을 준비한 뒤 예시 파일을 만들어요…');
   nav(); detail(); uploader();
+  if (query.get('sample')) loadSample();  // from the first screen: straight to the column mapping of the example log
 
   const picker = $('#file', root);
   picker.addEventListener('change', () => { const f = picker.files?.[0]; picker.value = ''; if (f) read(f); });
@@ -96,7 +98,7 @@ export function dataView(root, {id, query}) {
     const act = t.dataset.act;
     if (act === 'upload') { upload = {stage: 'pick'}; uploader(); picker.click(); }
     else if (act === 'choose') picker.click();
-    else if (act === 'sample') await load(async () => (await sampleFile()).csv, 'upliftlab-예시-쿠폰실험.csv', '예시 쿠폰 실험', state.engine.status === 'ready' ? '예시 파일 만드는 중…' : '엔진을 준비한 뒤 예시 파일을 만들어요…');
+    else if (act === 'sample') await loadSample();
     else if (act === 'sample-download') { t.disabled = true; try { const file = await sampleFile(); download(file.name, file.csv, 'text/csv'); } catch (error) { upload = {stage: 'pick', error: error.message}; uploader(); } t.disabled = false; }
     else if (act === 'cancel') { upload = null; uploader(); }
     else if (act === 'add') {

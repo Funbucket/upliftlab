@@ -10,8 +10,6 @@ build/
 .vercel/
 node_modules/
 dist/
-# Copied from dist/ by npm run build for the pip package
-engine/upliftlab/ui/
 
 # Kept locally, not published: planning and UX notes, and the earlier self-hosted runner
 NOTES-v0.21.md

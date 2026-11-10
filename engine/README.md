@@ -5,9 +5,8 @@
 ## 로컬
 
 ```bash
-git clone https://github.com/Funbucket/upliftlab && cd upliftlab
-pip install -e "engine[dev]"                 # numpy, scikit-learn, pytest, lightgbm
-upliftlab serve                              # http://127.0.0.1:4180 을 브라우저로 열어요 (--no-browser로 끄기)
+pip install git+https://github.com/Funbucket/upliftlab
+upliftlab                                    # http://127.0.0.1:4180 을 브라우저로 열어요 (upliftlab serve --no-browser로 끄기)
 upliftlab check my_model.py                  # 쓰는 라이브러리 확인 + 합성 데이터로 한 번 학습
 upliftlab run --data synthetic/base --algorithms all --cycles 8 --out result.json
 upliftlab run --data public/hillstrom --algorithm my_model.py   # 공개 데이터는 원본에서 받아 ~/.cache/upliftlab에 둬요
@@ -16,7 +15,7 @@ upliftlab run --data my_experiment.csv --mode budget --budget .3
 
 `upliftlab`은 `python -m upliftlab`과 같아요. `run`은 화면 없이 비교를 돌려 순위표를 출력하고, `--out` 결과 파일은 화면의 `실행 기록 → 결과 JSON 열기`로 볼 수 있어요. 선정 방식의 기본값은 `--mode budget`(예산 안에서 점수 순)이에요.
 
-- 화면은 소스 체크아웃의 `web/`을 서빙하고, 체크아웃이 없으면 패키지에 든 단일 파일(`upliftlab/ui/index.html`, `npm run build`가 복사)을 서빙해요. `GET /api/engine`이 응답하면 화면이 자동으로 로컬 엔진을 써요. 학습 진행은 `POST /api/engine/<method>`의 NDJSON 줄로 흘러와요.
+- 화면은 패키지에 함께 설치된 `web/` 폴더(`upliftlab/ui`)를 서빙하고, 소스 체크아웃(`pip install -e .`)에서는 `web/`을 그대로 서빙해요. 빌드 단계는 없어요. `GET /api/engine`이 응답하면 화면이 자동으로 로컬 엔진을 써요. 학습 진행은 `POST /api/engine/<method>`의 NDJSON 줄로 흘러와요.
 - 127.0.0.1에만 바인딩하고, 다른 출처의 POST는 거절해요. 사용자가 신뢰하는 자기 코드를 자기 컴퓨터에서 실행하는 모델이고, 공개 서버용 격리는 아니에요.
 - 알고리즘은 `serve`를 실행한 Python 환경의 패키지를 그대로 써요. 가상환경을 쓰면 그 환경을 활성화한 상태에서 실행해요.
 - PyTorch가 설치되어 있고 CUDA를 쓸 수 있으면 `context.device`가 `cuda:0`이 돼요. GPU를 쓸지는 알고리즘 코드가 정해요.
@@ -105,4 +104,4 @@ scores = model.predict(X_new)
 
 ## 검증
 
-`npm test`(= `python3 -m pytest tests/test_engine.py`, 먼저 `pip install -e "engine[dev]"`)가 공유되는 사용자·Explore 그룹, 학습 창, AUCC 기준선, 나란히 비교의 순위와 재현성, 1위와 차이 구간, 기본 알고리즘의 빠른 검사, 코드 오류 처리, CSV 매핑, Hillstrom 변환, 알고리즘 파일이 엔진을 import하지 않는지, 라이브러리 검사와 안내, PEP 723 의존성, 시작 틀의 빠른 검사(설치되지 않은 라이브러리의 틀은 건너뜀), Qini·Uplift@k 정의, 예산 소진과 예산 제약 순위, Gradient Boosting에서 X와 T의 차이, 처치가 공변량에 달린 로그에서 DML의 효과 추정, 다중 처치의 합성·업로드 실행을 확인한다.
+`npm test`(= `python3 -m pytest tests/test_engine.py`, 먼저 저장소 루트에서 `pip install -e ".[dev]"`)가 공유되는 사용자·Explore 그룹, 학습 창, AUCC 기준선, 나란히 비교의 순위와 재현성, 1위와 차이 구간, 기본 알고리즘의 빠른 검사, 코드 오류 처리, CSV 매핑, Hillstrom 변환, 알고리즘 파일이 엔진을 import하지 않는지, 라이브러리 검사와 안내, PEP 723 의존성, 시작 틀의 빠른 검사(설치되지 않은 라이브러리의 틀은 건너뜀), Qini·Uplift@k 정의, 예산 소진과 예산 제약 순위, Gradient Boosting에서 X와 T의 차이, 처치가 공변량에 달린 로그에서 DML의 효과 추정, 다중 처치의 합성·업로드 실행을 확인한다.

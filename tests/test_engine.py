@@ -593,10 +593,23 @@ def test_example_log_reads_like_a_real_export_and_passes_the_checks():
     assert bridge.sample_csv()['csv'] == out['csv'], 'the same file every time'
 
 
-def test_local_ui_falls_back_to_the_packaged_build(tmp_path):
+def test_local_ui_is_the_web_folder(tmp_path):
     from upliftlab import server
     assert server.ui_root().name == 'web', 'a source checkout serves web/'
     (tmp_path / 'index.html').write_text('<!doctype html>')
     assert server.ui_root(str(tmp_path)) == tmp_path.resolve()
     with pytest.raises(SystemExit):
         server.ui_root(str(tmp_path / 'missing'))
+
+
+def test_the_package_ships_every_file_the_ui_loads():
+    """pyproject.toml installs web/ as upliftlab.ui, so `pip install git+…` serves the same screen. A new file or folder in
+    web/ that the globs miss would be missing from the local edition."""
+    import re
+    root = Path(__file__).resolve().parents[1]
+    block = re.search(r'"upliftlab\.ui" = \[(.*?)\]', (root / 'pyproject.toml').read_text().split('[tool.setuptools.package-data]')[1]).group(1)
+    globs = re.findall(r'"([^"]+)"', block)
+    shipped = {p for g in globs for p in (root / 'web').glob(g) if p.is_file()}
+    present = {p for p in (root / 'web').rglob('*') if p.is_file() and p.name != 'README.md'}
+    assert present - shipped == set(), sorted(str(p.relative_to(root)) for p in present - shipped)
+    assert (root / 'web' / 'index.html') in shipped and (root / 'web' / 'views' / 'results.js') in shipped
