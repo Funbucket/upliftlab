@@ -1,6 +1,6 @@
 # UpliftLab engine
 
-브라우저(Pyodide)와 로컬이 같은 파일을 실행하는 Python 엔진이다. 엔진 자체는 NumPy만 쓰고, 기본 알고리즘은 scikit-learn을 쓴다.
+브라우저(Pyodide)와 로컬이 같은 파일을 실행하는 Python 엔진이다. 엔진 자체는 NumPy만 쓴다. 기본 알고리즘은 로컬에서 EconML(PyWhy)을, 브라우저에서는 같은 방법을 scikit-learn으로 쓴 경량판을 쓴다.
 
 ## 로컬
 
@@ -8,7 +8,7 @@
 pip install git+https://github.com/Funbucket/upliftlab
 upliftlab                                    # http://127.0.0.1:4180 을 브라우저로 열어요 (upliftlab serve --no-browser로 끄기)
 upliftlab check my_model.py                  # 쓰는 라이브러리 확인 + 합성 데이터로 한 번 학습
-upliftlab run --data synthetic/base --algorithms all --cycles 8 --out result.json
+upliftlab run --data public/criteo --algorithms all --cycles 8 --out result.json
 upliftlab run --data public/hillstrom --algorithm my_model.py   # 공개 데이터는 원본에서 받아 ~/.cache/upliftlab에 둬요
 upliftlab run --data my_experiment.csv --mode budget --budget .3
 ```
@@ -78,7 +78,8 @@ scores = model.predict(X_new)
 
 ### 기본 알고리즘과 시작 틀
 
-- `upliftlab/algorithms/`: 기본 알고리즘 6개. X-Learner, T-Learner, R-Learner, DML, Duality R-Learner는 scikit-learn, Random은 NumPy를 쓴다. 회귀 모델은 `context.base_learner`에 따라 Ridge 또는 HistGradientBoosting(`max_depth=3`, 100 iterations)이고, 다른 모델을 쓰려면 파일의 `base_model()`을 바꾼다. Ridge에서는 X-Learner와 T-Learner의 점수가 거의 같고(상관 0.99999), Gradient Boosting에서는 갈린다(기본 시장 상관 약 0.93). Duality R-Learner는 정규화한 성과와 비용의 CATE를 각각 학습한 뒤 τ̂ʳ − λ·τ̂ᶜ에서 λ를 고른다. Ridge는 목표에 선형이므로 Yᴱ = y/σ_y − λ·cost/σ_c를 λ마다 다시 학습한 결과와 같고, 단위를 바꿔도 순위가 같다. DML은 ê(x)도 3-fold로 추정해 처치가 공변량에 따라 달라져도 효과를 분리하고, 무작위 배정 데이터에서는 R-Learner와 거의 같다. 처치가 K종류면 모두 T=k와 T=0 행으로 처치마다 학습한다. 이전 알고리즘(Constrained Ranking, Direct Ranking, Ratio T-Learner, Response)은 `legacy/algorithms-v0.18/`에 있다.
+- `upliftlab/algorithms/`: 기본 알고리즘 6개의 EconML판. T-Learner는 `TLearner`, X-Learner는 `XLearner`, R-Learner는 `NonParamDML`, DML은 `LinearDML`, Duality R-Learner는 성과와 비용에 `NonParamDML`을 하나씩 쓴다. Random은 NumPy만 쓴다. EconML이 import되는 환경이면 `bridge.builtins()`가 이 파일들을 내놓는다.
+- `upliftlab/algorithms/lite/`: 같은 다섯 알고리즘의 scikit-learn 경량판. 브라우저와 EconML이 없는 환경에서 쓴다. 아래 설명은 경량판 기준이다. 회귀 모델은 `context.base_learner`에 따라 Ridge 또는 HistGradientBoosting(`max_depth=3`, 100 iterations)이고, 다른 모델을 쓰려면 파일의 `base_model()`을 바꾼다. Ridge에서는 X-Learner와 T-Learner의 점수가 거의 같고(상관 0.99999), Gradient Boosting에서는 갈린다(기본 시장 상관 약 0.93). Duality R-Learner는 정규화한 성과와 비용의 CATE를 각각 학습한 뒤 τ̂ʳ − λ·τ̂ᶜ에서 λ를 고른다. Ridge는 목표에 선형이므로 Yᴱ = y/σ_y − λ·cost/σ_c를 λ마다 다시 학습한 결과와 같고, 단위를 바꿔도 순위가 같다. DML은 ê(x)도 3-fold로 추정해 처치가 공변량에 따라 달라져도 효과를 분리하고, 무작위 배정 데이터에서는 R-Learner와 거의 같다. 처치가 K종류면 모두 T=k와 T=0 행으로 처치마다 학습한다. 이전 알고리즘(Constrained Ranking, Direct Ranking, Ratio T-Learner, Response)은 `legacy/algorithms-v0.18/`에 있다.
 - `upliftlab/templates/`: 화면의 `새 알고리즘`에서 고르는 시작 파일. scikit-learn T-Learner, LightGBM T-Learner(검증 셋 조기 종료), PyTorch 순위 모델(autograd, GPU). 목록은 `bridge.py`의 `TEMPLATES`.
 - 기본 알고리즘을 추가하려면 `upliftlab/algorithms/<id>.py`를 만들고 `algorithms/__init__.py`의 `ORDER`에 id를 넣은 뒤, 저장소 루트에서 `npm run bundle:engine`으로 `web/engine-files.js`와 `web/catalog.js`를 다시 만든다. 이 명령은 예시 결과를 다시 계산하므로 scikit-learn이 설치된 Python이 필요하다.
 
@@ -96,7 +97,8 @@ scores = model.predict(X_new)
 
 ## 데이터 (scenario.py, datasets.py)
 
-- 합성 시장 `synthetic/base`, `synthetic/loyal`, `synthetic/premium`, `synthetic/tiers`: 특성 4개, 사이클마다 2만 명. 모든 사용자의 처치했을 때와 안 했을 때 결과를 알고 있어 참값을 계산한다. `tiers`는 처치가 3종류다(보상 ×0.5, ×1, ×1.5). 효과는 ×0.55, ×1, ×1.3으로 포화되고 비용은 보상에 비례해서, 가장 큰 보상의 비용 효율이 가장 낮다.
+- 합성 쿠폰 실험 `synthetic/base`: 특성 4개, 사이클마다 2만 명. 모든 사용자의 처치했을 때와 안 했을 때 결과를 알고 있어 참값을 계산한다. 식은 `scenario.py`의 `SyntheticScenario` 설명에 있다. 화면에는 나오지 않는 `synthetic/tiers`는 처치가 3종류(쿠폰 ×0.5, ×1, ×1.5)인 같은 시장으로, 다중 처치 테스트에 쓴다.
+- Criteo 광고 실험 `public/criteo`: `web/data/criteo-uplift-sample.csv.gz`(199,837행, CC BY-NC-SA 4.0). 패키지에는 `upliftlab/ui/data/`로 들어간다. 로컬은 `datasets.fetch`가 이 파일을 읽고, 브라우저는 화면이 같은 파일을 받아 `add_dataset`으로 넘긴다.
 - 실험 기록 재생: 무작위 배정 실험 CSV(1,000행 이상). 열 역할(처치 0 = 대조군, 1~K = 처치(8종류까지), 결과, 비용, 특성)은 이름으로 추측하고(`coupon`, `returned`, `coupon_cost`처럼 이름 안의 단어도 본다) 화면에서 바꿀 수 있다. 비용 열이 없으면 처치 1건당 1로 계산한다. 범주형 열은 고유값 20개까지 one-hot 인코딩하고, 공변량 결측값은 중앙값으로 대체한다. `quality()`가 처치 비율, 공변량 균형(SMD), ATEᶜ, 결과, 표본 크기를 검사해 `profile.checks`로 돌려준다. 행을 섞어 사이클마다 겹치지 않는 풀(최대 2만 행, 사이클마다 400행 이상)로 나누고(분할은 파일 내용과 시드로만 정해진다), Explore·Exploit 안의 처치/대조는 기록된 값을 그대로 쓴다. 기록된 처치가 무작위 배정이 아니면 결과를 인과 효과로 해석할 수 없다.
 - 공개 데이터 `public/hillstrom`: 라이선스가 명시되지 않아 파일을 함께 배포하지 않는다. 로컬은 원본에서 받아 캐시에 두고, 브라우저에서는 사용자가 받은 파일을 올리면 형식을 알아보고 변환한다(이메일 발송 = 처치, visit = 결과, 지역·채널 0/1 특성).
 - AUCC: 점수 상위 f%마다 n₁·(Ȳ처치 − Ȳ대조)를 이은 곡선을 최대 비용·결과로 정규화한 면적. 무작위 순위가 약 0.5이며 0.5는 하한이 아니다. 테스트 셋이 작으면 크게 흔들린다.

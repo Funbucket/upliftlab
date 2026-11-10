@@ -14,6 +14,18 @@ README보다 자세한 내용이에요. 처음이라면 [uplift-lab.vercel.app](
 
 사이클이 끝나면 최근 3사이클의 Explore 데이터로 재학습하고, 다음 사이클에 새 모델을 써요. 사이클 1은 학습된 모델이 없어서 순위 합산에서 빼요.
 
+## 기본 알고리즘
+
+로컬에서는 `upliftlab/algorithms/`의 EconML 파일을, 웹에서는 `upliftlab/algorithms/lite/`의 scikit-learn 파일을 실행해요. 브라우저용 Python(Pyodide)에 EconML이 쓰는 numba가 없어서예요. 두 파일은 같은 방법을 구현하지만 cross-fitting 방식 같은 세부가 달라서 숫자가 조금 다를 수 있어요. 결과 화면과 보고서에 어느 쪽으로 돌렸는지 나와요.
+
+EconML은 Linux x86_64, macOS, Windows x86_64용 휠이 있어서 `pip install`로 함께 설치돼요. 휠이 없는 ARM Linux와 ARM Windows에서는 EconML 없이 설치되고 경량판이 돌아가요. 컴파일러가 있으면 Python 3.11 이상에서 `pip install econml`로 직접 빌드할 수 있어요.
+
+## 데이터
+
+- **Criteo 광고 실험**(기본): Criteo AI Lab의 Uplift Prediction Dataset v2.1(1,398만 명, 처치 85%)에서 처치군 100,000명과 대조군 99,837명을 뽑은 표본이에요. 뽑을 확률이 처치 여부에만 달려 있어서 표본도 무작위 배정 실험이고, 처치 비율만 50%가 돼요. 결과는 `visit`(사이트 방문), 공변량은 `f0`–`f11`이고 비용 열은 없어요(처치 1건당 1). 라이선스는 [CC BY-NC-SA 4.0](../web/data/LICENSE-criteo.md)이에요.
+- **Hillstrom 이메일 실험**: 64,000명. 명시된 라이선스가 없어 함께 배포하지 않아요. 로컬은 원본에서 자동으로 받고, 웹은 받은 CSV를 올리면 형식을 알아서 바꿔요.
+- **합성 쿠폰 실험**: 공변량 4개로 만든 단순한 식이에요. 쿠폰 없이 돌아올 확률, 쿠폰으로 늘어나는 확률, 쿠폰 비용이 공변량에 따라 정해지고([scenario.py](../engine/upliftlab/scenario.py)), 사용자마다 실제 효과를 알아서 참값으로 순위를 매겨요.
+
 ## 선정 방식
 
 | 방식 | 규칙 | 순위 기준 |
@@ -61,9 +73,9 @@ upliftlab                      # 화면을 열어요. upliftlab serve와 같아�
 ### 명령줄
 
 ```bash
-upliftlab run                                          # 기본 시장, 기본 알고리즘 6개, 예산 40%
+upliftlab run                                          # Criteo 표본, 기본 알고리즘 6개, 예산 40%
 upliftlab run --data my_experiment.csv --out result.json
-upliftlab run --data synthetic/loyal --algorithm my_model.py --mode quantile --target .3
+upliftlab run --data synthetic/base --algorithm my_model.py --mode quantile --target .3
 upliftlab check my_model.py                            # 쓰는 라이브러리 확인 + 합성 데이터로 한 번 학습
 ```
 
@@ -71,7 +83,7 @@ upliftlab check my_model.py                            # 쓰는 라이브러리 
 
 | 옵션 | 기본값 | 뜻 |
 |---|---|---|
-| `--data` | `synthetic/base` | `synthetic/base`, `synthetic/loyal`, `synthetic/premium`, `public/hillstrom`, 또는 CSV 경로 |
+| `--data` | `public/criteo` | `public/criteo`, `public/hillstrom`, `synthetic/base`, 또는 CSV 경로 |
 | `--algorithms` | `all` | 기본 알고리즘 id를 쉼표로 |
 | `--algorithm` | | 내 알고리즘 파일 (여러 번 쓸 수 있어요) |
 | `--mode` | `budget` | `budget`, `quantile`, `knapsack`, `roi`, `validation` |

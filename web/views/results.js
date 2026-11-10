@@ -1,9 +1,9 @@
 // The right panel: the leaderboard, the Exploit group's covariates, per-cycle metrics and the row-level log.
-import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.23.0';
-import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.23.0';
-import {lineChart, interpolate, responsive, interval} from '../charts.js?v=0.23.0';
-import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from '../summary.js?v=0.23.0';
-import {downloadReport, printReport, copySummary} from '../report.js?v=0.23.0';
+import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.24.0';
+import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.24.0';
+import {lineChart, interpolate, responsive, interval} from '../charts.js?v=0.24.0';
+import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from '../summary.js?v=0.24.0';
+import {downloadReport, printReport, copySummary} from '../report.js?v=0.24.0';
 
 const USE = {train: '학습', validation: '검증', test: '오프라인 평가'};
 const upliftK = run => (isBudget(run) ? run.plan?.budget ?? run.config?.budget : run.plan?.target ?? run.config?.target);
@@ -26,7 +26,7 @@ export function resultsPanel(el, heroEl, run) {
 
   // First visit: one claim, the way to try it on your own data, and the precomputed answer right under it.
   heroEl.innerHTML = run.example ? `<h1>같은 예산이라도, 대상을 고르는 모델에 따라 증분 성과가 달라져요</h1>
-    <p>실험 데이터를 넣으면 uplift 모델마다 운영 환경처럼 대상을 고르고 효과를 재는 과정을 시뮬레이션해서, 같은 예산에서 증분 성과가 가장 큰 모델을 찾아 줘요. 아래는 기본 시장으로 미리 돌려 본 결과예요.</p>
+    <p>실험 데이터를 넣으면 uplift 모델마다 운영 환경처럼 대상을 고르고 효과를 재는 과정을 시뮬레이션해서, 같은 예산에서 증분 성과가 가장 큰 모델을 찾아 줘요. 아래는 ${esc(W.data)} 데이터로 미리 돌려 본 결과예요.</p>
     <div class="hero-actions"><a class="btn btn-primary" href="#/data?upload=1">내 데이터로 비교하기</a><a class="btn btn-quiet" href="#/data?upload=1&amp;sample=1">예시 실험 파일로 해 보기</a><span class="hero-note" id="hero-note"></span></div>` : '';
   heroEl.hidden = !run.example;
   const heroNote = () => { const n = $('#hero-note', heroEl); if (n) n.textContent = state.engine.kind === 'local' ? '내 컴퓨터의 Python에서 실행해요. 데이터는 이 컴퓨터 밖으로 나가지 않아요.' : '설치는 필요 없어요. 데이터는 이 컴퓨터 밖으로 나가지 않아요.'; };
@@ -41,7 +41,7 @@ export function resultsPanel(el, heroEl, run) {
     const p = run.plan, c = run.config, status = {starting: '준비 중', running: '실행 중', paused: '일시정지', stopped: '중단된 실행', failed: '실행 실패', done: '실행 완료'}[run.status] || '실행 완료';
     const label = run.example ? '예시 결과 · 사전 계산' : run.imported ? `결과 파일 · ${run.imported}` : `${status} · ${when(run.createdAt)}`;
     const meta = [W.data, `알고리즘 ${armsOf(run).length}개`, `${p?.cycles ?? c.cycles}사이클`, p ? `사이클당 ${int(p.pool)}명` : null, `ε ${share(p?.explore ?? c.explore)}`, selectionLabel(p ?? c), p?.treatments > 1 ? `처치 ${p.treatments}종류` : null, (p?.baseLearner ?? c.baseLearner) === 'tree' ? 'Gradient Boosting' : null, `시드 ${p?.seed ?? c.seed}`,
-      run.runtime ? (run.runtime === 'local' ? '로컬' : '브라우저') : null, isNum(run.elapsed) ? duration(run.elapsed) : null].filter(Boolean);
+      run.runtime ? (run.runtime === 'local' ? '로컬' : '브라우저') : null, p?.implementation ? (p.implementation === 'econml' ? 'EconML' : 'scikit-learn 경량판') : null, isNum(run.elapsed) ? duration(run.elapsed) : null].filter(Boolean);
     const differs = !running() && c && !sameConfig(state.draft, c);
     $('#run-bar', el).innerHTML = `<div class="run-bar-text"><b class="${run.example ? 'is-example' : ''}">${esc(label)}</b><span>${meta.map(esc).join(' · ')}</span>${differs ? '<span class="run-differs">현재 설정이 이 결과와 달라요. 다시 실행해야 결과에 반영돼요. <button type="button" class="btn-link" data-act="use">이 결과의 설정 불러오기</button></span>' : ''}</div>
       <div class="run-bar-actions">${run.summary && sumOf(run, run.summary.leader)?.cycles ? `<div class="menu"><button type="button" class="btn btn-quiet btn-sm" data-act="share" aria-haspopup="true" aria-expanded="false">보고서 공유</button><div class="menu-pop share-pop" id="share-pop" hidden>

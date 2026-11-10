@@ -1,6 +1,6 @@
 // The left panel: dataset, algorithms, settings and the run button.
-import {$, $$, esc, int, share, duration, go, BRIEF, MAX_ALGORITHMS, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.23.0';
-import {state, subscribe, dataset, datasetReady, running, startRun, estimate, algorithm, unavailable, setDraft, selectAlgorithm, planOf} from '../store.js?v=0.23.0';
+import {$, $$, esc, int, share, duration, go, BRIEF, MAX_ALGORITHMS, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.24.0';
+import {state, subscribe, dataset, datasetReady, running, startRun, estimate, algorithm, unavailable, setDraft, selectAlgorithm, planOf} from '../store.js?v=0.24.0';
 
 const CYCLES = [4, 6, 8, 10, 12];
 const worst = d => { const levels = (d.stored?.profile?.checks || []).map(c => c.level); return levels.includes('bad') ? 'bad' : levels.includes('warn') ? 'warn' : null; };
@@ -16,7 +16,7 @@ export function sidePanel(el) {
     const draft = state.draft;
     const row = d => {
       const ready = datasetReady(d), on = draft.dataset === d.id, flag = worst(d);
-      const note = d.kind === 'public' ? (d.stored ? `공개 실험 · ${int(d.stored.profile?.rows)}행` : state.engine.kind === 'local' ? '공개 실험 · 실행 시 다운로드' : '공개 실험 · 파일 업로드 필요') : d.kind === 'upload' ? `업로드 · ${int(d.stored?.profile?.rows)}행` : '';
+      const note = d.kind === 'public' ? (d.bundled ? `공개 실험 · 표본 ${int(d.rows)}행` : d.stored ? `공개 실험 · ${int(d.stored.profile?.rows)}행` : state.engine.kind === 'local' ? '공개 실험 · 실행 시 다운로드' : '공개 실험 · 파일 업로드 필요') : d.kind === 'upload' ? `업로드 · ${int(d.stored?.profile?.rows)}행` : '';
       return `<label class="opt ${on ? 'is-on' : ''} ${ready ? '' : 'is-off'}"><input type="radio" name="dataset" value="${esc(d.id)}" ${on ? 'checked' : ''} ${ready ? '' : 'disabled'}><span class="mark mark-radio" aria-hidden="true"></span>
         <span class="opt-text"><b>${esc(d.name)}</b>${flag ? `<em class="tag ${flag === 'bad' ? 'tag-red' : 'tag-amber'}">검사 ${flag === 'bad' ? '오류' : '경고'}</em>` : ''}${note ? `<small>${esc(note)}</small>` : ''}${on && d.summary ? `<small class="opt-wrap">${esc(d.summary)}</small>` : ''}</span><a class="opt-link" href="#/data/${encodeURIComponent(d.id)}">${ready ? '상세' : '업로드'}</a></label>`;
     };

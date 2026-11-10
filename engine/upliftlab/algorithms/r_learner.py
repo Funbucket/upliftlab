@@ -1,31 +1,35 @@
 """결과와 처치의 잔차로 CATE를 학습해요(R-Learner). 비용은 보지 않아요.
 
-y − m(x) = (t − e)·τ(x) + ε
-m(x)는 2-fold cross-fitting으로 구하고, e는 propensity(상수)예요. τ(x)는 목표 (y − m) / (t − e), 가중치 (t − e)²인 회귀로 풀어요.
-회귀 모델은 context.base_learner에 따라 Ridge 또는 Gradient Boosting이에요(scikit-learn).
+EconML의 NonParamDML이에요. y − m̂(x) = (t − ê(x))·τ(x) + ε에서 m̂, ê를 2-fold cross-fitting으로 구하고,
+τ(x)는 목표 (y − m̂) / (t − ê), 가중치 (t − ê)²인 회귀로 풀어요. 처치가 여러 종류면 처치마다 대조군과 따로 학습해요.
 """
 import numpy as np
-from sklearn.ensemble import HistGradientBoostingRegressor
-from sklearn.linear_model import Ridge
-from sklearn.model_selection import KFold, cross_val_predict
+from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
+from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from econml.dml import NonParamDML
 
 NAME = 'R-Learner'
 
 
-def base_model(kind):
+def regressor(kind):
     if kind == 'tree':
         return HistGradientBoostingRegressor(max_depth=3, max_iter=100, early_stopping=False, random_state=0)
     return make_pipeline(StandardScaler(), Ridge(alpha=1.0))
 
 
-def r_learner(X, t, y, propensity, seed, kind):
-    """τ(x)를 예측하는 모델을 반환해요."""
-    m = cross_val_predict(base_model(kind), X, y, cv=KFold(2, shuffle=True, random_state=seed))
-    w = t - propensity
-    weight = {'sample_weight': w ** 2} if kind == 'tree' else {'ridge__sample_weight': w ** 2}
-    return base_model(kind).fit(X, (y - m) / w, **weight)
+def classifier(kind):
+    if kind == 'tree':
+        return HistGradientBoostingClassifier(max_depth=3, max_iter=100, early_stopping=False, random_state=0)
+    return make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+
+
+def final(kind):
+    """마지막 단계 회귀. EconML이 sample_weight를 넘기므로 파이프라인이 아닌 모델을 써요."""
+    if kind == 'tree':
+        return HistGradientBoostingRegressor(max_depth=3, max_iter=100, early_stopping=False, random_state=0)
+    return Ridge(alpha=1.0)
 
 
 class Model:
@@ -33,8 +37,9 @@ class Model:
         kind = getattr(context, 'base_learner', 'ridge')
         self.taus = []
         for arm in range(1, train.treatments + 1):
-            rows = (train.t == arm) | (train.t == 0)
-            self.taus.append(r_learner(train.X[rows], (train.t[rows] == arm).astype(float), train.y[rows], train.propensities[arm - 1], context.model_seed, kind))
+            rows = (train.t == 0) | (train.t == arm)
+            est = NonParamDML(model_y=regressor(kind), model_t=classifier(kind), model_final=final(kind), discrete_treatment=True, cv=2, random_state=context.model_seed)
+            self.taus.append(est.fit(train.y[rows], (train.t[rows] == arm).astype(int), X=train.X[rows]))
 
     def predict(self, X):
-        return np.column_stack([tau.predict(X) for tau in self.taus])
+        return np.column_stack([np.ravel(est.const_marginal_effect(X)) for est in self.taus])

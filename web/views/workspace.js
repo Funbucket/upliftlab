@@ -1,8 +1,8 @@
 // The main screen: settings on the left, results on the right.
-import {$, go} from '../lib.js?v=0.23.0';
-import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.23.0';
-import {sidePanel} from './side.js?v=0.23.0';
-import {resultsPanel} from './results.js?v=0.23.0';
+import {$, go} from '../lib.js?v=0.24.0';
+import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.24.0';
+import {sidePanel} from './side.js?v=0.24.0';
+import {resultsPanel} from './results.js?v=0.24.0';
 
 export function workspaceView(root, {id, query}) {
   const data = query.get('data'), algo = query.get('algo');

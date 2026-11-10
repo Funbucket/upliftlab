@@ -13,7 +13,7 @@ Uplift 알고리즘 시뮬레이션 화면. 빌드 없이 `web/`을 정적으로
 - `views/data.js`: 데이터셋 목록, 검사, 요약(공변량 분포, 미리 보기), CSV 업로드와 열 역할 매핑, 공개 데이터 다운로드.
 - `charts.js`: 선 차트(한 y축, 십자선 툴팁, 키보드 ←/→), 구간 막대. `lib.js`: 서식, 범주 색, 알고리즘 한 줄 정의(`BRIEF`), 조사(`josa`), 비용 단위(`unitFor`).
 - `runtime.js`: `GET api/engine`이 로컬판이면 HTTP(NDJSON 스트림), 아니면 Pyodide 워커. 호출은 순서대로 실행되고 진행 이벤트는 실행 중인 호출에 속한다. 워커는 알고리즘 코드를 다루는 호출(`check`, `try_algorithm`, `run_start`) 전에 그 코드가 import하는 Pyodide 패키지를 불러오고(`loadPackagesFromImports`), PEP 723 블록에 적힌 패키지를 micropip으로 설치한다.
-- 생성 파일 · 직접 고치지 않는다: `engine-files.js`(`scripts/bundle-engine.mjs`), `catalog.js`(`scripts/build-catalog.py`, 데이터·알고리즘·시작 틀 목록과 예시 결과), `vendor/editor.js`, `fonts/`.
+- 생성 파일 · 직접 고치지 않는다: `engine-files.js`(`scripts/bundle-engine.mjs`), `catalog.js`(`scripts/build-catalog.py`, 데이터·알고리즘·시작 틀 목록과 예시 결과), `vendor/editor.js`, `fonts/`, `data/`(Criteo 표본과 라이선스, `scripts/sample-criteo.py`).
 
 ## 동작 규칙
 

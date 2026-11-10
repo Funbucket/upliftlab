@@ -1,10 +1,10 @@
 // The shareable report: one self-contained HTML file with the conclusion, the ranking, two charts, the conditions and how to
 // read them. It holds aggregates only, never uploaded rows. The same page prints to PDF, and a three-line summary goes to chat.
-import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.23.0';
-import {wordsFor, dataset, algorithm} from './store.js?v=0.23.0';
-import {CATALOG} from './catalog.js?v=0.23.0';
-import {lineChart} from './charts.js?v=0.23.0';
-import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from './summary.js?v=0.23.0';
+import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.24.0';
+import {wordsFor, dataset, algorithm} from './store.js?v=0.24.0';
+import {CATALOG} from './catalog.js?v=0.24.0';
+import {lineChart} from './charts.js?v=0.24.0';
+import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from './summary.js?v=0.24.0';
 
 const SITE = 'https://uplift-lab.vercel.app';
 const day = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -29,6 +29,7 @@ function conditions(run, W) {
     ['선정 방식', `${esc(SELECTION[mode]?.name || mode)} · ${esc(selectionLabel(p.mode ? p : c))}<small>${esc(SELECTION[mode]?.rule || '')}</small>`],
     ['사이클', `${int(p.cycles ?? c.cycles)}사이클 · 사이클당 후보 ${int(p.pool)}명 · Explore ${share(p.explore ?? c.explore)}<small>사이클 1은 학습된 모델이 없어 합산에서 빼요.</small>`],
     ['기본 모델', (p.baseLearner ?? c.baseLearner) === 'tree' ? 'Gradient Boosting' : 'Ridge'],
+    ...(p.implementation ? [['알고리즘 구현', p.implementation === 'econml' ? 'EconML (PyWhy)' : 'scikit-learn 경량판<small>브라우저에는 EconML이 없어 같은 방법을 scikit-learn으로 구현한 파일을 썼어요.</small>']] : []),
     ['시드', esc(p.seed ?? c.seed)],
     ['실행', run.example ? '예시 결과 (사전 계산)' : [run.createdAt ? new Date(run.createdAt).toLocaleString('ko-KR') : null, run.runtime ? (run.runtime === 'local' ? '로컬 Python' : '브라우저') : null, isNum(run.elapsed) ? duration(run.elapsed) : null].filter(Boolean).join(' · ') || '—'],
   ];

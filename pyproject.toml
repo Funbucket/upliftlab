@@ -4,16 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "upliftlab"
-version = "0.23.0"
+version = "0.24.0"
 description = "Find the uplift model that gives the most incremental outcome for the same budget, on your own experiment data"
 requires-python = ">=3.10"
 readme = "README.md"
 license = "MIT"
-license-files = ["LICENSE", "web/fonts/LICENSE", "web/vendor/LICENSES.txt"]
+license-files = ["LICENSE", "web/fonts/LICENSE", "web/vendor/LICENSES.txt", "web/data/LICENSE-criteo.md"]
 keywords = ["uplift modeling", "causal inference", "CATE", "targeting", "marketing", "A/B testing"]
 classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent", "Intended Audience :: Science/Research", "Topic :: Scientific/Engineering"]
-# The engine needs only NumPy. The built-in algorithms use scikit-learn. Your own algorithms can use anything you install.
-dependencies = ["numpy>=1.21", "scikit-learn>=1.2"]
+# The engine needs only NumPy. The built-in algorithms use EconML (PyWhy) locally and fall back to their scikit-learn versions
+# (algorithms/lite) where EconML has no prebuilt wheel: Linux and Windows on ARM. Your own algorithms can use anything you install.
+dependencies = ["numpy>=1.21", "scikit-learn>=1.2", "econml>=0.16; platform_machine != 'aarch64' and platform_machine != 'ARM64'"]
 
 [project.optional-dependencies]
 gpu = ["torch"]
@@ -38,4 +39,5 @@ upliftlab = "engine/upliftlab"
 
 [tool.setuptools.package-data]
 upliftlab = ["templates/*.py"]
-"upliftlab.ui" = ["*.html", "*.css", "*.js", "views/*.js", "fonts/*.css", "fonts/LICENSE", "fonts/files/*.woff2", "vendor/*"]
+"upliftlab.algorithms" = ["lite/*.py"]
+"upliftlab.ui" = ["*.html", "*.css", "*.js", "views/*.js", "fonts/*.css", "fonts/LICENSE", "fonts/files/*.woff2", "vendor/*", "data/*"]

@@ -10,17 +10,17 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3182f6)](pyproject.toml)
 [![Demo](https://img.shields.io/badge/demo-uplift--lab.vercel.app-191f28)](https://uplift-lab.vercel.app)
 
-<a href="https://uplift-lab.vercel.app"><img src="docs/images/upliftlab.png" width="880" alt="upliftlab 첫 화면. 같은 예산에서 Duality R-Learner가 Random보다 증분 리텐션을 2,933명(+39%) 더 얻었다는 결론과 알고리즘별 막대"></a>
+<a href="https://uplift-lab.vercel.app"><img src="docs/images/upliftlab.png" width="880" alt="upliftlab 첫 화면. Criteo 광고 실험에서 같은 예산으로 uplift 모델이 Random보다 증분 방문을 약 300명(+62%) 더 얻었다는 결론과 알고리즘별 막대"></a>
 
 </div>
 
-쿠폰 줄 대상을 uplift 모델로 고를 때, Qini가 가장 높은 모델이 운영에서도 가장 많이 남길까요? upliftlab은 모델마다 **대상을 고르고, 처치군과 대조군으로 효과를 재고, 재학습하는** 운영 루프를 사이클마다 반복해요. 그리고 같은 예산에서 실제로 늘어난 성과로 순위를 매겨요.
+쿠폰 줄 대상을 uplift 모델로 고를 때, Qini가 가장 높은 모델이 운영에서도 가장 많이 남길까요? upliftlab은 모델마다 **대상을 고르고, 처치군과 대조군으로 효과를 재고, 재학습하는** 운영 루프를 사이클마다 반복해요. 그리고 같은 예산에서 실제로 늘어난 성과로 순위를 매겨요. 기본 알고리즘은 [EconML](https://github.com/py-why/EconML)(PyWhy)로 구현했고, 첫 화면은 [Criteo](https://ailab.criteo.com/criteo-uplift-prediction-dataset/) 공개 광고 실험으로 돌린 결과예요.
 
 ## 시작하기
 
-**웹**에서는 설치가 필요 없어요. [uplift-lab.vercel.app](https://uplift-lab.vercel.app)을 열고 `예시 실험 파일로 해 보기`를 눌러요. 데이터는 브라우저 밖으로 나가지 않아요.
+**웹**에서는 설치가 필요 없어요. [uplift-lab.vercel.app](https://uplift-lab.vercel.app)을 열고 `예시 실험 파일로 해 보기`를 눌러요. 데이터는 브라우저 밖으로 나가지 않아요. 브라우저에는 EconML이 없어서, 웹에서는 같은 방법을 scikit-learn으로 쓴 경량판이 돌아가요.
 
-**로컬**에서는 같은 화면이 내 Python에서 돌아가요. 큰 데이터, 이미 설치한 라이브러리, GPU를 그대로 써요.
+**로컬**에서는 같은 화면이 내 Python에서 EconML로 돌아가요. 큰 데이터, 이미 설치한 라이브러리, GPU를 그대로 써요.
 
 ```bash
 pip install git+https://github.com/Funbucket/upliftlab
@@ -36,6 +36,25 @@ upliftlab
 3. **팀에 보내요.** `보고서 공유`에서 HTML 보고서, PDF, 메신저용 요약을 골라요. 보고서에는 집계 값만 들어가요.
 
 결론에는 1위 모델, Random 대비 증분 성과, 2위와의 차이와 95% CI, 1위 모델이 고른 사용자의 특징이 나와요. 모든 모델이 같은 사용자와 같은 무작위 Explore 그룹을 쓰기 때문에, 차이는 대상을 고른 방식에서만 생겨요.
+
+## 기본 알고리즘과 데이터
+
+| 알고리즘 | 로컬 (EconML) | 하는 일 |
+|---|---|---|
+| T-Learner | `metalearners.TLearner` | 처치군과 대조군 모델의 예측 차이 |
+| X-Learner | `metalearners.XLearner` | 대체한 효과를 propensity로 가중 |
+| R-Learner | `dml.NonParamDML` | 잔차로 푸는 비모수 CATE |
+| DML | `dml.LinearDML` | 잔차로 푸는 선형 CATE |
+| Duality R-Learner | `dml.NonParamDML` 두 개 | 성과와 비용의 CATE를 함께 보고 λ를 validation에서 골라요 |
+| Random | NumPy | 비교 기준선 |
+
+결과 화면과 보고서에 EconML과 경량판 중 무엇으로 돌렸는지 표시해요. 각 파일은 `class Model` 하나라서 열어 보고 그대로 고쳐 쓸 수 있어요.
+
+| 데이터 | 크기 | 쓰는 곳 |
+|---|---|---|
+| Criteo 광고 실험 (기본) | 199,837명 표본, 결과는 사이트 방문 | 사이트와 패키지에 들어 있어요. 원본 1,398만 명에서 처치군과 대조군을 10만 명씩 뽑았어요 |
+| Hillstrom 이메일 실험 | 64,000명, 결과는 방문 | 로컬은 원본을 자동으로 받고, 웹은 받은 파일을 올려요 |
+| 합성 쿠폰 실험 | 사이클마다 2만 명 | 사용자마다 실제 효과를 알아서 참값과 비교해요. 쿠폰 비용이 사용자마다 달라요 |
 
 ## 내 데이터
 
@@ -77,4 +96,4 @@ upliftlab run --data my_experiment.csv --algorithm my_model.py
 
 ## 라이선스
 
-[MIT](LICENSE). 함께 배포하는 Noto Sans KR 글꼴은 SIL Open Font License(`web/fonts/LICENSE`), 편집기 번들은 `web/vendor/LICENSES.txt`를 따라요.
+[MIT](LICENSE). 함께 배포하는 Criteo 표본은 [CC BY-NC-SA 4.0](web/data/LICENSE-criteo.md)이라 비상업적으로만 쓸 수 있어요. Noto Sans KR 글꼴은 SIL Open Font License(`web/fonts/LICENSE`), 편집기 번들은 `web/vendor/LICENSES.txt`를 따라요.

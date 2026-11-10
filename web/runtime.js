@@ -1,5 +1,5 @@
 // One call interface, two places to run the Python engine: the browser (Pyodide worker) or the local edition server.
-import {ENGINE_FILES} from './engine-files.js?v=0.23.0';
+import {ENGINE_FILES} from './engine-files.js?v=0.24.0';
 
 export const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/';
 const WORKER = `

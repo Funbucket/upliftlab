@@ -1,9 +1,11 @@
-"""Datasets: built-in synthetic markets, public experiments fetched from their source, and uploaded CSV files.
+"""Datasets: one synthetic experiment with known effects, public experiments, and uploaded CSV files.
 
-Public files are never bundled. The local edition downloads them from the source; in the browser the user uploads the
-file they downloaded, and known schemas (such as Hillstrom) are converted automatically.
+Criteo ships as a 200k-row sample (web/data, CC BY-NC-SA 4.0) so the web and the local edition start from the same real
+experiment. Hillstrom has no stated license, so it is never bundled: the local edition downloads it from the source and in
+the browser the user uploads it, and its schema is converted automatically.
 """
 import csv
+import gzip
 import hashlib
 import io
 import re
@@ -16,16 +18,20 @@ import numpy as np
 from .scenario import SyntheticScenario
 
 SYNTHETIC = [
-    {'id': 'synthetic/base', 'preset': 'base', 'name': '기본 시장',
-     'summary': '공변량 4개가 고르게 분포해요. 이용 공백이 긴 사용자의 증분 효과가 커요.'},
-    {'id': 'synthetic/loyal', 'preset': 'loyal', 'name': '고빈도 사용자 시장',
-     'summary': '이용 빈도가 높은 사용자가 많아요. 처치 없이도 리텐션이 높아 증분 효과가 작은 사용자 비중이 커요.'},
-    {'id': 'synthetic/premium', 'preset': 'premium', 'name': '고액 결제 시장',
-     'summary': '결제액과 가격 민감도가 높아요. 증분 효과가 크지만 증분 비용도 커요.'},
-    {'id': 'synthetic/tiers', 'preset': 'tiers', 'name': '다단계 보상 시장', 'treatment': '미지급 = 0, 보상 ×0.5 = 1, 보상 ×1 = 2, 보상 ×1.5 = 3',
-     'summary': '처치가 3종류예요. 보상이 클수록 효과는 포화되고 비용은 커져서, 사용자별로 어떤 보상을 줄지 함께 결정해요.'},
+    {'id': 'synthetic/base', 'preset': 'base', 'name': '합성 쿠폰 실험',
+     'summary': '공변량 4개로 만든 단순한 쿠폰 실험이에요. 사용자마다 실제 효과를 알아서 참값과 비교할 수 있고, 쿠폰 비용이 사용자마다 달라요.'},
 ]
-SYNTHETIC_FIELDS = {'outcome': '리텐션 (0/1)', 'treatment': '보상 지급 = 1, 미지급 = 0', 'cost': '보상 사용액'}
+SYNTHETIC_FIELDS = {'outcome': '리텐션 (0/1)', 'treatment': '쿠폰 지급 = 1, 미지급 = 0', 'cost': '쿠폰 사용액'}
+
+CRITEO = {
+    'id': 'public/criteo', 'name': 'Criteo 광고 실험', 'rows': 199837, 'bundled': 'data/criteo-uplift-sample.csv.gz',
+    'summary': 'Criteo가 공개한 1,398만 명 규모의 광고 무작위 실험에서 처치군과 대조군을 10만 명씩 뽑은 표본이에요. 광고 후 사이트 방문이 결과예요.',
+    'source': 'https://ailab.criteo.com/criteo-uplift-prediction-dataset/',
+    'download': 'https://huggingface.co/datasets/criteo/criteo-uplift',
+    'license': 'CC BY-NC-SA 4.0 · 비상업적으로만 쓰고 출처를 밝혀요. 표본은 upliftlab과 함께 배포해요.',
+    'treatment': '광고 대상 = 1, 대조군 = 0', 'outcome': 'visit · 사이트 방문 (0/1)', 'cost': '열 없음 · 처치 1건당 1',
+    'mapping': {'treatment': 'treatment', 'outcome': 'visit', 'cost': None, 'features': [f'f{i}' for i in range(12)]},
+}
 
 HILLSTROM = {
     'id': 'public/hillstrom', 'name': 'Hillstrom 이메일 실험', 'rows': 64000,
@@ -36,7 +42,7 @@ HILLSTROM = {
     'treatment': '이메일 발송 (남성용·여성용) = 1, 미발송 = 0', 'outcome': 'visit · 2주 안 방문 (0/1)', 'cost': '열 없음 · 발송 1건당 1',
 }
 HILLSTROM_COLUMNS = {'recency', 'history', 'mens', 'womens', 'zip_code', 'newbie', 'channel', 'segment', 'visit'}
-PUBLIC = [HILLSTROM]
+PUBLIC = [CRITEO, HILLSTROM]
 
 TREATMENT_NAMES = {'t', 'treatment', 'treated', 'treat', 'w', 'group', 'coupon', 'voucher', 'promo', 'promotion', 'reward', 'offer', 'campaign', 'email', 'exposed', 'sent', 'dose', 'arm', 'variant'}
 OUTCOME_NAMES = {'y', 'outcome', 'conversion', 'converted', 'convert', 'retained', 'retention', 'yr', 'visit', 'visited', 'return', 'returned', 'response', 'purchase', 'purchased', 'bought', 'order', 'ordered', 'click', 'clicked', 'revenue', 'target', 'label'}
@@ -54,7 +60,10 @@ def catalog():
 
 
 def synthetic_preset(dataset_id):
+    """The scenario preset of a synthetic id. 'synthetic/tiers' works too (tests, CLI) though the app lists only the base one."""
     preset = next((d['preset'] for d in SYNTHETIC if d['id'] == dataset_id), None)
+    if preset is None and dataset_id.startswith('synthetic/') and dataset_id.split('/', 1)[1] in SyntheticScenario.PRESETS:
+        preset = dataset_id.split('/', 1)[1]
     if preset is None:
         raise ValueError(f'알 수 없는 데이터예요: {dataset_id}')
     return preset
@@ -283,11 +292,23 @@ def profile_synthetic(dataset_id, seed=42):
     return profile(pop.X, t, y, cost, SyntheticScenario.features, pop.tau_r, pop.tau_c)
 
 
+def bundled_path(name):
+    """A file under web/data: inside the package (upliftlab/ui/data) or in a source checkout (web/data)."""
+    here = Path(__file__).resolve().parent
+    for path in (here / 'ui' / name, here.parents[1] / 'web' / name):
+        if path.is_file():
+            return path
+    raise FileNotFoundError(f'{name} 파일이 없어요. 패키지를 다시 설치해 주세요.')
+
+
 def fetch(dataset_id, cache=Path.home() / '.cache' / 'upliftlab' / 'datasets'):
-    """Local edition only: download a public dataset from its source once and keep it in the user's cache."""
+    """Local edition only: read a bundled sample, or download a public dataset from its source once and keep it in the user's cache."""
     meta = next((d for d in PUBLIC if d['id'] == dataset_id), None)
     if meta is None:
         raise ValueError(f'내려받을 수 없는 데이터예요: {dataset_id}')
+    if meta.get('bundled'):
+        with gzip.open(bundled_path(meta['bundled']), 'rt', encoding='utf-8') as f:
+            return f.read()
     path = cache / (dataset_id.split('/')[-1] + '.csv')
     if not path.exists():
         cache.mkdir(parents=True, exist_ok=True)

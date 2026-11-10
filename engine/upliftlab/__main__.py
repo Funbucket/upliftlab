@@ -13,7 +13,7 @@ web.add_argument('--no-browser', action='store_true', help='do not open the brow
 check = sub.add_parser('check', help='list the libraries an algorithm file uses, then fit it once on synthetic data')
 check.add_argument('file', metavar='FILE.py')
 run = sub.add_parser('run', help='run a head-to-head comparison without the UI and write the result as JSON')
-run.add_argument('--data', default='synthetic/base', help='synthetic/base | synthetic/loyal | synthetic/premium | public/hillstrom | path to a CSV')
+run.add_argument('--data', default='public/criteo', help='public/criteo (the bundled 200k sample) | public/hillstrom (downloaded once) | synthetic/base | path to a CSV')
 run.add_argument('--algorithms', default='all', help='comma-separated built-in ids, or "all"')
 run.add_argument('--algorithm', action='append', default=[], metavar='FILE.py', help='add your own algorithm file (repeatable)')
 run.add_argument('--cycles', type=int, default=8)
@@ -79,15 +79,20 @@ def main(argv=None):
         result = bridge.run_all(dataset, algorithms, args.cycles, args.explore, args.target, args.seed, args.mode, args.budget, args.base_learner, args.efficiency)
         by = result['summary']['by']
         measure = ('incremental' if by.lower().endswith('incr') else 'gain') + (' (truth)' if by.startswith('truth') else ' (observed)')
-        print(f"\n{'rank':<5}{'algorithm':<26}{measure:>22}{'observed 95% CI':>22}{'AUCC':>8}{'Qini':>8}{'fit ms':>9}")
+        volume = by.lower().endswith('incr')  # ranked by incremental outcome: the band is the gap to first place, as on the screen
+        print(f"\n{'rank':<5}{'algorithm':<26}{measure:>22}{'vs 1st, 95% CI' if volume else 'observed 95% CI':>30}{'AUCC':>8}{'Qini':>8}{'fit ms':>9}")
         for s in sorted(result['summary']['arms'], key=lambda s: s['rank']):
             g, ci, auc, ms = s[by], s['ci'], s['aucc'], s['trainMs']
-            gain = '—' if g is None else f'{g:,.0f}' if by.lower().endswith('incr') else f'{g:+.1%}'
+            gain = '—' if g is None else f'{g:,.0f}' if volume else f'{g:+.1%}'
             q = '—' if s['qini'] is None else f"{s['qini']:.3f}"
-            band = '—' if ci[0] is None else f'[{ci[0]:+.1%}, {ci[1]:+.1%}]'
+            gap = s.get('vsLeader') or {}
+            if volume:
+                band = '1st' if s['rank'] == 1 else '—' if gap.get('diff') is None or gap.get('ci', [None])[0] is None else f"{gap['diff']:+,.0f} [{gap['ci'][0]:+,.0f}, {gap['ci'][1]:+,.0f}]"
+            else:
+                band = '—' if ci[0] is None else f'[{ci[0]:+.1%}, {ci[1]:+.1%}]'
             auc = '—' if auc is None else f'{auc:.3f}'
             ms = '—' if ms is None else f'{ms:.0f}'
-            print(f"{s['rank']:<5}{s['name'][:25]:<26}{gain:>22}{band:>22}{auc:>8}{q:>8}{ms:>9}")
+            print(f"{s['rank']:<5}{s['name'][:25]:<26}{gain:>22}{band:>30}{auc:>8}{q:>8}{ms:>9}")
         print('\n' + conclusion(result, args.mode))
         if args.out:
             Path(args.out).write_text(json.dumps({'format': 'upliftlab.run/1', **result}, ensure_ascii=False))

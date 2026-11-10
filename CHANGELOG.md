@@ -1,5 +1,13 @@
 # 변경 기록
 
+## v0.24
+
+- **EconML:** 기본 알고리즘을 EconML(PyWhy)로 다시 썼어요. T-Learner는 `TLearner`, X-Learner는 `XLearner`, R-Learner는 `NonParamDML`, DML은 `LinearDML`, Duality R-Learner는 `NonParamDML` 두 개를 써요. 로컬 설치에 EconML이 함께 들어가요(ARM Linux와 ARM Windows는 제외).
+- **경량판:** 브라우저에는 EconML이 없어서(numba 필요) 웹은 같은 방법을 scikit-learn으로 쓴 `algorithms/lite/` 파일을 실행해요. 엔진이 어느 쪽을 쓰는지 알려 주고, 결과 화면, 보고서, 알고리즘 화면에 표시해요. 로컬 화면은 엔진이 준 EconML 파일을 실행해요.
+- **Criteo:** Criteo 광고 실험(1,398만 명)에서 처치군과 대조군을 10만 명씩 뽑은 표본을 사이트와 패키지에 넣고 기본 데이터로 정했어요. 첫 화면 예시도 이 데이터를 EconML로 돌린 결과예요. 표본은 CC BY-NC-SA 4.0을 따라요.
+- **합성 데이터:** 합성 시장 4개를 `합성 쿠폰 실험` 하나로 줄이고 식을 문서에 적었어요.
+- **명령줄:** `upliftlab run`의 기본 데이터가 `public/criteo`예요.
+
 ## v0.23
 
 - **첫 화면:** 결론이 화면 첫 장에 보여요. 소개를 한 문장과 버튼 두 개(`내 데이터로 비교하기`, `예시 실험 파일로 해 보기`)로 줄이고, 시뮬레이션 구조 설명은 결론 아래에 접어 뒀어요. 휴대폰에서는 첫 방문일 때 결론이 설정보다 먼저 나와요.

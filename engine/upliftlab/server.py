@@ -16,7 +16,7 @@ from . import bridge
 LOCK = threading.Lock()
 # The UI is ES modules and a web font. Some systems map .js to text/plain (the Windows registry can), which browsers refuse
 # for module scripts, so the types are set here instead of read from the system.
-TYPES = {'.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.woff2': 'font/woff2', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8'}
+TYPES = {'.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html; charset=utf-8', '.woff2': 'font/woff2', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.gz': 'application/gzip', '.md': 'text/markdown; charset=utf-8'}
 
 
 def detect_devices():

@@ -1,4 +1,5 @@
 """JSON entry points shared by the browser worker (Pyodide) and the local server."""
+import importlib.util
 import json
 import math
 import platform
@@ -41,28 +42,36 @@ def report(message):
     state['report'](json.dumps(clean(message)))
 
 
-def _files(folder, keys):
+def _files(paths):
     """Algorithm files with what they declare, read without running them (so listing never needs their libraries)."""
     out = []
-    for key in keys:
-        code = (folder / f'{key}.py').read_text(encoding='utf-8')
+    for key, path in paths:
+        code = path.read_text(encoding='utf-8')
         meta = contract.describe(code, f'{key}.py')
-        out.append({'id': key, 'name': meta['name'] or key, 'summary': meta['summary'], 'code': code, 'file': f'upliftlab/{folder.name}/{key}.py',
+        out.append({'id': key, 'name': meta['name'] or key, 'summary': meta['summary'], 'code': code, 'file': path.relative_to(ALGORITHM_DIR.parent.parent).as_posix(),
                     'libraries': contract.libraries(meta['imports'], meta['requires'])})
     return out
 
 
-def builtins():
-    return [{**a, 'builtin': True} for a in _files(ALGORITHM_DIR, ORDER)]
+def implementation():
+    """'econml' where EconML is installed (the local edition), else 'lite': the scikit-learn versions in algorithms/lite."""
+    return 'econml' if not contract.BROWSER and importlib.util.find_spec('econml') is not None else 'lite'
+
+
+def builtins(impl=None):
+    impl = impl or implementation()
+    lite = ALGORITHM_DIR / 'lite'
+    paths = [(key, lite / f'{key}.py' if impl == 'lite' and (lite / f'{key}.py').exists() else ALGORITHM_DIR / f'{key}.py') for key in ORDER]
+    return [{**a, 'builtin': True, 'implementation': impl} for a in _files(paths)]
 
 
 def templates():
-    return _files(TEMPLATE_DIR, TEMPLATES)
+    return _files([(key, TEMPLATE_DIR / f'{key}.py') for key in TEMPLATES])
 
 
 def info():
     return {'engine': __version__, 'python': platform.python_version(), 'numpy': np.__version__, 'runtime': state['runtime'],
-            'device': state['device'], 'devices': state['devices'], 'algorithms': builtins(), 'templates': templates(),
+            'device': state['device'], 'devices': state['devices'], 'implementation': implementation(), 'algorithms': builtins(), 'templates': templates(),
             'libraries': contract.libraries(contract.COMMON), 'datasets': datasets.catalog()}
 
 
@@ -122,10 +131,11 @@ def sample_csv():
 
 
 def fetch_dataset(id):
+    """Local edition: a bundled sample or a download from the source. The browser loads bundled files itself (add_dataset)."""
     if state['runtime'] != 'local':
         raise ValueError('원본 사이트가 브라우저 다운로드를 막고 있어요. 파일을 받아 업로드하거나 로컬에서 실행해 주세요.')
     meta = next(d for d in datasets.PUBLIC if d['id'] == id)
-    return add_dataset(id, datasets.fetch(id), meta['name'])
+    return add_dataset(id, datasets.fetch(id), meta['name'], meta.get('mapping'))
 
 
 def describe_dataset(id, seed=42):
@@ -151,7 +161,9 @@ def run_start(dataset, algorithms, cycles=8, explore=.2, target=.4, seed=42, win
         except Exception as error:
             raise ValueError(f"{a.get('name') or a['id']} · {contract.explain(error)}") from None
     state['run'] = Run(scenario, algorithms, explore=explore, target=target, seed=seed, window=window, device=state['device'], mode=mode, budget=budget, base_learner=base_learner, efficiency=efficiency)
-    return {**state['run'].plan(), 'dataset': dataset, 'engine': __version__, 'runtime': state['runtime'], 'device': state['device']}
+    uses = {m for a in algorithms for m in contract.describe(a['code'], f"{a['id']}.py")['imports']}
+    return {**state['run'].plan(), 'dataset': dataset, 'engine': __version__, 'runtime': state['runtime'], 'device': state['device'],
+            'implementation': 'econml' if 'econml' in uses else 'lite'}
 
 
 def run_cycle():

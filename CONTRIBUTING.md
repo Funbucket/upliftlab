@@ -16,12 +16,14 @@ npm run check                  # 화면 JavaScript 문법 검사
 npm run dev                    # 로컬판: http://127.0.0.1:4180, 엔진은 내 Python
 npm run dev:browser            # 정적 서버: http://127.0.0.1:4173, 엔진은 브라우저 Pyodide
 npm run bundle:engine          # engine/을 고친 뒤: web/engine-files.js와 web/catalog.js를 다시 만들어요
-npm run build                  # 웹 배포용 단일 파일 dist/index.html
+npm run build                  # 웹 배포용 dist/index.html과 dist/data/(Criteo 표본)
 ```
 
 - `web/`은 빌드 없이 그대로 돌아가는 ES 모듈이에요. 로컬판 패키지도 `web/` 폴더를 그대로 담아요(`pyproject.toml`의 `upliftlab.ui`).
 - 화면 파일을 고치면 모든 import의 `?v=` 값을 함께 올려요. 값이 섞이면 같은 모듈이 두 번 로드돼요.
-- `web/engine-files.js`, `web/catalog.js`, `web/vendor/`, `web/fonts/`는 생성 파일이라 직접 고치지 않아요.
+- `web/engine-files.js`, `web/catalog.js`, `web/vendor/`, `web/fonts/`, `web/data/`는 생성 파일이라 직접 고치지 않아요.
+- 예시 결과는 `scripts/build-catalog.py`가 EconML로 계산해요. EconML이 있는 Python을 `UPLIFTLAB_PYTHON`으로 넘기세요(`UPLIFTLAB_PYTHON=.venv/bin/python npm run build`). 없으면 경량판으로 계산돼요.
+- 기본 알고리즘을 고치면 EconML 파일(`algorithms/`)과 경량판(`algorithms/lite/`)을 함께 고치고, EconML이 있는 환경과 없는 환경에서 `npm test`를 모두 돌려요.
 
 ## 폴더 구조
 
@@ -31,11 +33,12 @@ engine/upliftlab/        Python 엔진. 브라우저와 로컬이 같은 파일�
   scenario.py            합성 시장과 실험 로그 replay
   datasets.py            CSV 해석, 열 매핑, 데이터 검사, 예시 실험 로그
   metrics.py             Cost Curve, AUCC, Qini, Uplift@k
-  algorithms/            기본 알고리즘 (파일마다 class Model 하나)
+  algorithms/            기본 알고리즘, EconML판 (파일마다 class Model 하나)
+  algorithms/lite/       같은 알고리즘의 scikit-learn 경량판 (브라우저)
   templates/             새 알고리즘 시작 틀
   bridge.py server.py    JSON 호출 규약, 로컬 서버, __main__.py (upliftlab 명령)
-web/                     화면: app.js, store.js, summary.js(결론), report.js(보고서), views/
-scripts/                 빌드와 예시 결과 생성
+web/                     화면: app.js, store.js, summary.js(결론), report.js(보고서), views/, data/(Criteo 표본)
+scripts/                 빌드, 예시 결과 생성, Criteo 표본 만들기(sample-criteo.py)
 tests/                   엔진 테스트
 docs/                    사용 안내와 README 이미지
 ```

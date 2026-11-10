@@ -109,7 +109,8 @@ def test_x_learner_weights_both_effect_models_by_propensity():
     tau = 2 * X[:, 0]
     y = X[:, 1] + t * tau + rng.normal(0, .1, n)
     train = contract.dataset(X, t, y, t * 1., .2, ['a', 'b', 'c'])
-    model_type, _ = contract.load(BUILTINS['x_learner']['code'], 'x_learner.py')
+    lite = next(a for a in bridge.builtins('lite') if a['id'] == 'x_learner')  # the scikit-learn file, whose parts are visible
+    model_type, _ = contract.load(lite['code'], 'x_learner.py')
     model = model_type()
     contract.fit(model, train, train, None)
     tau1, tau0, e = model.arms[0]
@@ -432,10 +433,12 @@ def test_hillstrom_schema_is_converted_automatically():
 
 def test_algorithm_files_import_only_common_libraries():
     """Built-ins and templates are files a data scientist can copy anywhere: no engine imports, nothing hidden."""
-    for a in [*bridge.builtins(), *TEMPLATES.values()]:
-        tree = ast.parse(a['code'])
-        modules = {n.split('.')[0] for node in ast.walk(tree) for n in ([x.name for x in node.names] if isinstance(node, ast.Import) else [node.module or ''] if isinstance(node, ast.ImportFrom) else [])}
-        assert modules <= {'numpy', 'sklearn', 'lightgbm', 'torch'}, (a['id'], modules)
+    imports = lambda code: {n.split('.')[0] for node in ast.walk(ast.parse(code)) for n in ([x.name for x in node.names] if isinstance(node, ast.Import) else [node.module or ''] if isinstance(node, ast.ImportFrom) else [])}  # noqa: E731
+    for a in bridge.builtins('lite'):
+        assert imports(a['code']) <= {'numpy', 'sklearn'}, ('the browser runs these, so no EconML', a['id'])
+    for a in [*bridge.builtins('econml'), *bridge.builtins('lite'), *TEMPLATES.values()]:
+        modules = imports(a['code'])
+        assert modules <= {'numpy', 'sklearn', 'econml', 'lightgbm', 'torch'}, (a['id'], modules)
         assert a['name'] and a['summary'] and all(l['package'] != 'upliftlab' for l in a['libraries'])
     assert {l['package'] for l in TEMPLATES['start_lightgbm']['libraries']} == {'lightgbm', 'numpy'}
     assert importlib.util.find_spec('upliftlab.tools') is None
@@ -459,7 +462,7 @@ def test_pep723_dependencies_are_read_without_running_the_file():
     code = '# /// script\n# requires-python = ">=3.10"\n# dependencies = [\n#   "scikit-uplift>=0.5",\n#   \'econml\',\n# ]\n# ///\nimport sklift\n'
     assert contract.requirements(code) == ['scikit-uplift>=0.5', 'econml']
     assert contract.describe(code)['imports'] == ['sklift'] and contract.package_of('sklift') == 'scikit-uplift'
-    assert contract.pending([code]) == ['scikit-uplift>=0.5', 'econml']
+    assert contract.pending([code]) == ['scikit-uplift>=0.5'] + ([] if importlib.util.find_spec('econml') else ['econml'])
     assert contract.pending(['# /// script\n# dependencies = ["numpy"]\n# ///\n']) == [], 'already installed'
     assert contract.requirements('import numpy\n') == []
 
@@ -613,3 +616,37 @@ def test_the_package_ships_every_file_the_ui_loads():
     present = {p for p in (root / 'web').rglob('*') if p.is_file() and p.name != 'README.md'}
     assert present - shipped == set(), sorted(str(p.relative_to(root)) for p in present - shipped)
     assert (root / 'web' / 'index.html') in shipped and (root / 'web' / 'views' / 'results.js') in shipped
+
+
+def test_each_builtin_has_an_econml_file_and_a_lite_file_with_the_same_name():
+    """Locally the built-ins are EconML; the browser has no EconML and runs the scikit-learn files in algorithms/lite."""
+    econml, lite = bridge.builtins('econml'), bridge.builtins('lite')
+    assert [a['id'] for a in econml] == [a['id'] for a in lite] == list(BUILTINS)
+    for full, small in zip(econml, lite):
+        assert full['name'] == small['name']
+        if full['id'] == 'random_baseline':
+            assert full['file'] == small['file'] == 'upliftlab/algorithms/random_baseline.py'
+            continue
+        assert 'econml' in {l['module'] for l in full['libraries']} and full['file'] == f"upliftlab/algorithms/{full['id']}.py"
+        assert small['file'] == f"upliftlab/algorithms/lite/{small['id']}.py" and '경량판' in small['code']
+    expected = 'econml' if importlib.util.find_spec('econml') else 'lite'
+    assert bridge.implementation() == expected and {a['implementation'] for a in bridge.builtins()} == {expected}
+
+
+def test_criteo_sample_is_bundled_mapped_and_still_randomized():
+    """The 200k-row Criteo sample ships with the site and the package; it was drawn by treatment only, so it stays an RCT."""
+    meta = next(d for d in datasets.PUBLIC if d['id'] == 'public/criteo')
+    data = datasets.parse(datasets.fetch('public/criteo'), meta['mapping'])
+    assert len(data.t) == meta['rows'] == 199837 and data.features == [f'f{i}' for i in range(12)]
+    assert abs(data.t.mean() - .5) < .01 and set(np.unique(data.y)) == {0., 1.} and np.all(data.cost == data.t)
+    ate = data.y[data.t == 1].mean() - data.y[data.t == 0].mean()
+    assert .008 < ate < .012, 'the visit uplift of the full Criteo data is about +1.0%p'
+    checks = {c['id']: c['level'] for c in datasets.quality(data.X, data.t, data.y, data.cost, data.features)}
+    assert set(checks.values()) == {'ok'}, checks
+    assert [d['id'] for d in datasets.catalog()] == ['synthetic/base', 'public/criteo', 'public/hillstrom']
+    bridge.state.update(runtime='local')
+    try:
+        assert bridge.fetch_dataset('public/criteo')['mapping']['outcome'] == 'visit'
+    finally:
+        bridge.state.update(runtime='browser')
+

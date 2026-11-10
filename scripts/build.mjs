@@ -12,7 +12,7 @@ let notices='Bundled editor dependencies\n';
 for(const name of licensePaths){try{notices+='\n--- '+name+' ---\n'+await readFile(path.join(root,'node_modules',name,'LICENSE'),'utf8')}catch{}}
 await writeFile(path.join(root,'web/vendor/LICENSES.txt'),notices);
 await import('./bundle-engine.mjs');
-execFileSync('python3', [path.join(root, 'scripts/build-catalog.py')], {stdio: 'inherit'});
+execFileSync(process.env.UPLIFTLAB_PYTHON || 'python3', [path.join(root, 'scripts/build-catalog.py')], {stdio: 'inherit'});  // a Python with EconML computes the example with the EconML built-ins
 const fontRoot=path.join(root,'node_modules/@fontsource-variable/noto-sans-kr');
 await mkdir(path.join(root,'web/fonts'),{recursive:true});
 await cp(path.join(fontRoot,'files'),path.join(root,'web/fonts/files'),{recursive:true});
@@ -27,5 +27,6 @@ for(const match of fontCSS.matchAll(/url\(\.\/files\/([^)]*)\)/g)){const data=aw
 const bundledCSS=css.replace("@import url('./fonts/font.css');",inlineFonts);
 const output=html.replace(/<link rel="stylesheet" href="\.\/styles\.css(?:\?[^"]*)?">/,()=>`<style>${bundledCSS}</style>`).replace(/<script type="module" src="\.\/app\.js(?:\?[^"]*)?"><\/script>/,()=>`<script type="module">${code.replace(/<\/script/gi,'<\\/script')}</script>`);
 await mkdir(path.join(root,'dist'),{recursive:true});await writeFile(path.join(root,'dist/index.html'),output);
+await cp(path.join(root,'web/data'),path.join(root,'dist/data'),{recursive:true});  // the Criteo sample and its license, fetched by the page
 // The pip package ships web/ itself (see pyproject.toml), so the local edition needs no build step.
 console.log('Built dist/index.html. The Python engine loads Pyodide from the CDN, or runs natively via upliftlab.');

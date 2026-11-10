@@ -1,7 +1,7 @@
 // Algorithm library: read the built-in code, clone it, write your own, and run a quick check before a full simulation.
-import {$, esc, isNum, int, fix, pp, share, duration, download, go, BRIEF} from '../lib.js?v=0.23.0';
-import {state, subscribe, algorithm, addAlgorithm, updateAlgorithm, removeAlgorithm, quickCheck, templates, unavailable, selectAlgorithm} from '../store.js?v=0.23.0';
-import {createEditor} from '../vendor/editor.js?v=0.23.0';
+import {$, esc, isNum, int, fix, pp, share, duration, download, go, BRIEF} from '../lib.js?v=0.24.0';
+import {state, subscribe, algorithm, addAlgorithm, updateAlgorithm, removeAlgorithm, quickCheck, templates, unavailable, selectAlgorithm} from '../store.js?v=0.24.0';
+import {createEditor} from '../vendor/editor.js?v=0.24.0';
 
 const checks = new Map();  // algorithm id → last quick-check result, kept while the page is open
 const PEP723 = `# /// script
@@ -39,9 +39,16 @@ export function algorithmsView(root, {id, query}) {
     $('#algo-nav', root).innerHTML = `<h3 class="group">기본 제공<span>${state.algorithms.filter(x => x.builtin).length}</span></h3>${state.algorithms.filter(x => x.builtin).map(item).join('')}
       <h3 class="group">내 알고리즘<span>${mine.length}</span></h3>${mine.length ? mine.map(item).join('') : '<p class="muted small pad">복제하거나 추가한 알고리즘이 여기에 표시돼요.</p>'}`;
   }
+  // Built-ins run on EconML locally and as scikit-learn lite files in the browser, which has no EconML.
+  function impl(x) {
+    if (!x.builtin || x.id === 'random_baseline') return '';
+    const econml = `https://github.com/Funbucket/upliftlab/blob/main/engine/upliftlab/algorithms/${encodeURIComponent(x.id)}.py`;
+    return `<p class="algo-impl">${x.implementation === 'econml' ? 'EconML(PyWhy)로 구현한 파일이에요. 웹에서는 브라우저에 EconML이 없어서 같은 방법을 scikit-learn으로 쓴 경량판이 돌아가요.'
+      : `웹 경량판이에요. 브라우저에는 EconML이 없어서 같은 방법을 scikit-learn으로 구현했어요. 로컬(upliftlab)에서는 <a class="link" href="${econml}" target="_blank" rel="noopener">EconML판</a>이 돌아가요.`}</p>`;
+  }
   function head() {
     $('#algo-head', root).innerHTML = `<div class="algo-title"><h2>${esc(a.name)}</h2>${a.builtin ? '<span class="tag">기본 제공</span>' : '<span class="tag tag-blue">내 코드</span>'}${a.base ? `<span class="muted small">원본 · ${esc(algorithm(a.base)?.name || a.base)}</span>` : ''}</div>
-      <p class="algo-summary">${esc(a.summary || (a.builtin ? '' : 'docstring의 첫 문단이 여기에 표시돼요.'))}</p>${libs(a.libraries)}
+      <p class="algo-summary">${esc(a.summary || (a.builtin ? '' : 'docstring의 첫 문단이 여기에 표시돼요.'))}</p>${impl(a)}${libs(a.libraries)}
       <div class="algo-actions">${a.builtin ? '<button type="button" class="btn btn-primary" data-act="clone">복제해서 수정</button>' : ''}<a class="btn ${a.builtin ? 'btn-quiet' : 'btn-primary'}" href="#/?algo=${encodeURIComponent(a.id)}">시뮬레이션에 추가</a><button type="button" class="btn btn-quiet" data-act="check">빠른 검사</button>
       ${a.builtin ? '' : '<button type="button" class="btn btn-quiet" data-act="clone">복제</button>'}<button type="button" class="btn btn-quiet" data-act="download">.py 내려받기</button>${a.builtin ? '' : '<button type="button" class="btn btn-text danger" data-act="delete">삭제</button>'}</div>`;
   }

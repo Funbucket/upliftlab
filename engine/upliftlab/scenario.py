@@ -32,15 +32,22 @@ class Population:
 
 
 class SyntheticScenario:
-    """Users who return anyway cost a lot and gain little; lapsed users respond; high spenders respond but cost more.
+    """A simple coupon experiment with four covariates in [0, 1]: visit frequency f, days since the last visit l, price
+    sensitivity p and order value c.
 
-    Every user has all potential outcomes, so the true effect of any selection is known exactly.
+        retention without a coupon   p₀ = logistic(−0.55 + 2.4f − 1.9l + 0.25c)
+        retention with a coupon      p₁ = p₀ + 0.02 + 0.22·l·(1 − 0.65f) + 0.08p + 0.07c
+        coupon cost when redeemed    0.8 + 3.6c   (85% of retained users redeem it)
+
+    Lapsed users respond most, frequent users would return anyway, and high spenders respond but cost more. Every user has
+    both potential outcomes, so the true effect of any selection is known exactly. The 'tiers' preset (three coupon
+    sizes) exists for the multi-treatment tests and is not listed in the app.
     """
     kind = 'synthetic'
     truth = True
     propensity = .5
     features = ['최근 이용 빈도', '이용 공백', '가격 민감도', '평균 결제액']
-    PRESETS = {'base': (0, 0, 0, 0), 'loyal': (.16, -.08, 0, 0), 'premium': (0, .04, .12, .18), 'tiers': (0, 0, 0, 0)}
+    PRESETS = {'base': (0, 0, 0, 0), 'tiers': (0, 0, 0, 0)}
     # Treatment levels of a market: how much a reward costs relative to the base reward, and how much of the base effect it buys.
     # The effect saturates, so the largest reward is rarely the most cost-effective one.
     LEVELS = {'tiers': {'cost': (.5, 1., 1.5), 'effect': (.55, 1., 1.3), 'labels': ['보상 ×0.5', '보상 ×1', '보상 ×1.5']}}

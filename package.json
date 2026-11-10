@@ -1,13 +1,13 @@
 {
   "name": "upliftlab-playground",
-  "version": "0.23.0",
+  "version": "0.24.0",
   "private": true,
   "type": "module",
   "description": "upliftlab: simulate which uplift model gives the most incremental outcome for the same budget, in a production-like explore/exploit loop, and share the result as a report",
   "scripts": {
     "build": "node scripts/build.mjs",
     "deploy": "npm run build && cd dist && vercel deploy --prod",
-    "bundle:engine": "node scripts/bundle-engine.mjs && python3 scripts/build-catalog.py",
+    "bundle:engine": "node scripts/bundle-engine.mjs && ${UPLIFTLAB_PYTHON:-python3} scripts/build-catalog.py",
     "dev": "PYTHONPATH=engine python3 -m upliftlab serve",
     "dev:browser": "python3 -m http.server 4173 --bind 127.0.0.1 --directory web",
     "test": "python3 -m pytest tests/test_engine.py -q",

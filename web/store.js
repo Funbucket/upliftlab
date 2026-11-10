@@ -1,8 +1,8 @@
 // App state: the engine, algorithms, datasets and runs. Views subscribe and re-render when something changes.
-import {ENGINE_FILES} from './engine-files.js?v=0.23.0';
-import {CATALOG, EXAMPLE} from './catalog.js?v=0.23.0';
-import {createRuntime} from './runtime.js?v=0.23.0';
-import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.23.0';
+import {ENGINE_FILES} from './engine-files.js?v=0.24.0';
+import {CATALOG, EXAMPLE} from './catalog.js?v=0.24.0';
+import {createRuntime} from './runtime.js?v=0.24.0';
+import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.24.0';
 
 const USER_KEY = 'upliftlab.algorithms.v15', RUN_KEY = 'upliftlab.runs.v16', DRAFT_KEY = 'upliftlab.draft.v22', MAX_RUNS = 12, KEEP_TRACES = 3;
 const SETTINGS = {mode: 'quantile', budget: .4, efficiency: .2, baseLearner: 'ridge'};  // results made before these settings existed used these values
@@ -98,7 +98,7 @@ function placeDataset(m) {
   else state.datasets.push({id: m.id, kind: 'upload', name: m.name, summary: '', truth: false, stored: m});
 }
 export const dataset = id => state.datasets.find(d => d.id === id);
-export const datasetReady = d => !!d && (d.kind === 'synthetic' || !!d.stored || (d.kind === 'public' && state.engine.kind === 'local'));
+export const datasetReady = d => !!d && (d.kind === 'synthetic' || !!d.bundled || !!d.stored || (d.kind === 'public' && state.engine.kind === 'local'));
 export const inspectFile = text => call('inspect_csv', {csv: text});
 export const sampleFile = () => call('sample_csv');  // {name, csv}: an example randomized coupon experiment
 export async function addDataset({text, name, mapping}) {
@@ -122,10 +122,22 @@ export async function removeDataset(id) {
   if (d?.kind === 'upload') state.datasets = state.datasets.filter(x => x.id !== id); else if (d) d.stored = null;
   emit('datasets');
 }
+// A sample shipped with the site (Criteo): fetched from ./data, unzipped here, and mapped by the catalog. The same file is
+// served by the local edition, so both start from the same rows. It is kept in memory only; the browser caches the file.
+async function loadBundled(d) {
+  const res = await fetch('./' + d.bundled);
+  if (!res.ok) throw new Error(`‘${d.name}’ 파일을 불러오지 못했어요 (${res.status}).`);
+  let bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes[0] === 0x1f && bytes[1] === 0x8b) bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());  // a server may already have unzipped it
+  const out = await call('add_dataset', {id: d.id, csv: new TextDecoder().decode(bytes), name: d.name, mapping: d.mapping});
+  d.stored = {id: d.id, name: d.name, mapping: out.mapping, profile: out.profile, createdAt: null, bundled: true};
+  loaded.add(d.id); profiles.set(d.id, out.profile); emit('datasets');
+}
 export async function ensureDataset(id) {
   const d = dataset(id);
   if (!d) throw new Error('데이터를 찾을 수 없어요.');
   if (d.kind === 'synthetic' || loaded.has(id)) return;
+  if (d.bundled) { await (d.loading ||= loadBundled(d).finally(() => { d.loading = null; })); return; }
   const rec = await idb('readonly', s => s.get(id), () => memory.get(id));
   if (rec?.csv) await call('add_dataset', {id, csv: rec.csv, name: rec.name, mapping: rec.mapping});
   else if (d.kind === 'public' && state.engine.kind === 'local') await fetchPublic(id);
@@ -135,6 +147,7 @@ export async function ensureDataset(id) {
 export async function profileOf(id) {
   if (profiles.has(id)) return profiles.get(id);
   const d = dataset(id);
+  if (d.bundled) await ensureDataset(id);
   const profile = d.kind === 'synthetic' ? (await call('describe_dataset', {id})).profile : d.stored?.profile;
   if (profile) profiles.set(id, profile);
   return profile;
@@ -145,6 +158,7 @@ export function wordsFor(id) {
   const d = dataset(id);
   if (d?.kind === 'synthetic') return {data: d.name, outcome: '리텐션', incR: '증분 리텐션', unit: '명', cost: '보상 비용', binary: true};
   if (d?.id === 'public/hillstrom') return {data: d.name, outcome: '방문', incR: '증분 방문', unit: '명', cost: '발송 비용', binary: true};
+  if (d?.id === 'public/criteo') return {data: d.name, outcome: '방문', incR: '증분 방문', unit: '명', cost: '광고 대상 인원', binary: true};
   const m = d?.stored?.mapping, outcome = m?.outcome || '결과';
   return {data: d?.name || id || '데이터', outcome, incR: `증분 ${outcome}`, unit: '', cost: m ? m.cost || '처치 건수' : '비용', binary: false};
 }
@@ -267,7 +281,8 @@ export async function boot() {
     state.engine.kind = runtime.kind;
     const info = await runtime.ready;
     state.engine = {status: 'ready', kind: runtime.kind, info, text: '', loading: ''};
-    for (const b of info.algorithms || []) { const a = algorithm(b.id); if (a?.builtin) a.libraries = b.libraries; }
+    // The engine says which files its built-ins are: EconML where it is installed (local), the scikit-learn lite files in the browser.
+    for (const b of info.algorithms || []) { const a = algorithm(b.id); if (a?.builtin) Object.assign(a, {libraries: b.libraries, code: b.code, file: b.file, summary: b.summary, implementation: b.implementation}); }
     resolveReady();
     for (const a of state.algorithms) if (!a.builtin) check(a);
   } catch (error) {

@@ -1,6 +1,6 @@
 // Datasets: synthetic markets, public experiments and uploaded logs, with column mapping, validity checks and a profile.
-import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.23.0';
-import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.23.0';
+import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.24.0';
+import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.24.0';
 
 const ROLES = [['feature', '공변량'], ['treatment', '처치'], ['outcome', '결과'], ['cost', '비용'], ['skip', '제외']];
 const LEVELS = {ok: ['통과', 'check-ok'], warn: ['경고', 'check-warn'], bad: ['오류', 'check-bad']};
@@ -17,23 +17,23 @@ export function dataView(root, {id, query}) {
     const groups = [['합성', 'synthetic'], ['공개 실험', 'public'], ['업로드', 'upload']];
     $('#data-nav', root).innerHTML = groups.map(([title, kind]) => {
       const list = state.datasets.filter(x => x.kind === kind);
-      return `<h3 class="group">${title}<span>${list.length}</span></h3>${list.length ? list.map(x => `<a href="#/data/${encodeURIComponent(x.id)}" class="${x.id === d.id ? 'is-on' : ''}"><b>${esc(x.name)}</b><small>${x.kind === 'synthetic' ? '참값 있음' : x.stored ? `${int(x.stored.profile?.rows)}행` : x.kind === 'public' ? '업로드 전' : ''}</small></a>`).join('') : '<p class="muted small pad">업로드한 CSV가 여기에 표시돼요.</p>'}`;
+      return `<h3 class="group">${title}<span>${list.length}</span></h3>${list.length ? list.map(x => `<a href="#/data/${encodeURIComponent(x.id)}" class="${x.id === d.id ? 'is-on' : ''}"><b>${esc(x.name)}</b><small>${x.kind === 'synthetic' ? '참값 있음' : x.bundled ? `표본 ${int(x.rows)}행` : x.stored ? `${int(x.stored.profile?.rows)}행` : x.kind === 'public' ? '업로드 전' : ''}</small></a>`).join('') : '<p class="muted small pad">업로드한 CSV가 여기에 표시돼요.</p>'}`;
     }).join('') + (storage.persistent ? '' : '<p class="muted small pad">이 브라우저는 저장소를 쓸 수 없어 업로드한 파일이 새로고침하면 사라져요.</p>');
   }
   function fields() {
     if (d.kind === 'synthetic') return [['처치', d.treatment], ['결과', d.outcome], ['비용', d.cost], ['공변량', d.features.join(', ')]];
     const m = d.stored?.mapping;
-    if (d.kind === 'public') return [['처치', d.treatment], ['결과', d.outcome], ['비용', d.cost], ['공변량', m?.features?.join(', ') || '업로드 후 표시']];
+    if (d.kind === 'public') return [['처치', d.treatment], ['결과', d.outcome], ['비용', d.cost], ['공변량', (m?.features || d.mapping?.features)?.join(', ') || '업로드 후 표시']];
     return [['처치', m?.treatment], ['결과', m?.outcome], ['비용', m?.cost || '열 없음 · 처치 1건당 1'], ['공변량', m?.features?.join(', ')]];
   }
   async function detail() {
-    const ready = datasetReady(d), loaded = d.kind === 'synthetic' || d.stored;
+    const ready = datasetReady(d), loaded = d.kind === 'synthetic' || d.stored || d.bundled;
     const tag = d.kind === 'synthetic' ? '합성 · 참값 있음' : d.kind === 'public' ? '공개 실험' : '업로드';
     const source = d.kind === 'public' ? `<section class="card"><div class="card-head"><div><h2>원본과 라이선스</h2><p>${esc(d.license)}</p></div></div>
-      <ul class="plain"><li>출처 · <a class="link" href="${esc(d.source)}" target="_blank" rel="noopener">${esc(new URL(d.source).hostname)}</a></li><li>원본 파일 · <a class="link" href="${esc(d.download)}" target="_blank" rel="noopener">${esc(d.download.split('/').pop())}</a></li></ul>
-      ${d.stored ? '' : state.engine.kind === 'local' ? '<button type="button" class="btn btn-primary" data-act="fetch">원본 다운로드</button>' : `<p class="muted small">원본 사이트가 브라우저 다운로드를 막고 있어요. 원본 파일을 받아 업로드해 주세요. 형식을 인식해 자동으로 변환해요.</p><button type="button" class="btn btn-primary" data-act="upload">파일 업로드</button>`}<p class="msg" id="fetch-msg"></p></section>` : '';
+      <ul class="plain"><li>출처 · <a class="link" href="${esc(d.source)}" target="_blank" rel="noopener">${esc(new URL(d.source).hostname)}</a></li><li>원본 파일 · <a class="link" href="${esc(d.download)}" target="_blank" rel="noopener">${esc(d.download.split('/').pop())}</a></li>${d.bundled ? `<li>표본 파일 · <a class="link" href="./${esc(d.bundled)}" download>${esc(d.bundled.split('/').pop())}</a> · <a class="link" href="https://github.com/Funbucket/upliftlab/blob/main/web/data/LICENSE-criteo.md" target="_blank" rel="noopener">뽑은 방법과 라이선스</a></li>` : ''}</ul>
+      ${d.stored || d.bundled ? '' : state.engine.kind === 'local' ? '<button type="button" class="btn btn-primary" data-act="fetch">원본 다운로드</button>' : `<p class="muted small">원본 사이트가 브라우저 다운로드를 막고 있어요. 원본 파일을 받아 업로드해 주세요. 형식을 인식해 자동으로 변환해요.</p><button type="button" class="btn btn-primary" data-act="upload">파일 업로드</button>`}<p class="msg" id="fetch-msg"></p></section>` : '';
     $('#data-detail', root).innerHTML = `<section class="card data-head"><div class="algo-title"><h2>${esc(d.name)}</h2><span class="tag">${tag}</span></div><p class="algo-summary">${esc(d.summary || (d.stored ? `${new Date(d.stored.createdAt).toLocaleDateString('ko-KR')} 업로드` : ''))}</p>
-      <div class="algo-actions">${ready ? `<a class="btn btn-primary" href="#/?data=${encodeURIComponent(d.id)}&amp;run=1">이 데이터로 바로 실행</a><a class="btn btn-quiet" href="#/?data=${encodeURIComponent(d.id)}">설정 바꾸고 실행</a>` : ''}${d.stored && d.kind !== 'synthetic' ? `<button type="button" class="btn btn-text danger" data-act="remove">${d.kind === 'upload' ? '삭제' : '업로드 파일 삭제'}</button>` : ''}</div>
+      <div class="algo-actions">${ready ? `<a class="btn btn-primary" href="#/?data=${encodeURIComponent(d.id)}&amp;run=1">이 데이터로 바로 실행</a><a class="btn btn-quiet" href="#/?data=${encodeURIComponent(d.id)}">설정 바꾸고 실행</a>` : ''}${d.stored && !d.bundled && d.kind !== 'synthetic' ? `<button type="button" class="btn btn-text danger" data-act="remove">${d.kind === 'upload' ? '삭제' : '업로드 파일 삭제'}</button>` : ''}</div>
       <dl class="defs compact">${fields().map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v || '—')}</dd></div>`).join('')}</dl></section>${source}<div id="profile">${loaded ? '<section class="card"><p class="muted">요약 계산 중…</p></section>' : ''}</div>`;
     if (!loaded) return;
     const profile = await profileOf(d.id).catch(() => null), box = $('#profile', root);
