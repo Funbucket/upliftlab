@@ -1,0 +1,31 @@
+{
+  "name": "upliftlab-playground",
+  "version": "0.22.0",
+  "private": true,
+  "type": "module",
+  "description": "upliftlab: simulate which uplift model gives the most incremental outcome for the same budget, in a production-like explore/exploit loop, and share the result as a report",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "deploy": "npm run build && cd dist && vercel deploy --prod",
+    "bundle:engine": "node scripts/bundle-engine.mjs && python3 scripts/build-catalog.py",
+    "dev": "PYTHONPATH=engine python3 -m upliftlab serve",
+    "dev:browser": "python3 -m http.server 4173 --bind 127.0.0.1 --directory web",
+    "test": "python3 -m pytest tests/test_engine.py -q",
+    "check": "for f in web/app.js web/lib.js web/store.js web/charts.js web/runtime.js web/summary.js web/report.js web/views/*.js web/editor-entry.js scripts/bundle-engine.mjs scripts/build.mjs; do node --check $f || exit 1; done",
+    "run": "PYTHONPATH=engine python3 -m upliftlab run"
+  },
+  "devDependencies": {
+    "@codemirror/autocomplete": "^6.20.4",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/merge": "^6.12.3",
+    "@codemirror/search": "^6.7.2",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.15",
+    "@fontsource-variable/noto-sans-kr": "^5.3.1",
+    "esbuild": "^0.28.2",
+    "@lezer/highlight": "^1.2.5"
+  },
+  "license": "MIT"
+}

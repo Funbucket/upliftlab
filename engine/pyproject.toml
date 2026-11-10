@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "upliftlab"
+version = "0.22.0"
+description = "Compare uplift algorithms head-to-head in a production-like explore/exploit loop"
+requires-python = ">=3.10"
+readme = "README.md"
+keywords = ["uplift modeling", "causal inference", "CATE", "targeting", "marketing", "A/B testing"]
+classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent", "Intended Audience :: Science/Research", "Topic :: Scientific/Engineering"]
+# The engine needs only NumPy. The built-in algorithms use scikit-learn. Your own algorithms can use anything you install.
+dependencies = ["numpy>=1.21", "scikit-learn>=1.2"]
+
+[project.optional-dependencies]
+gpu = ["torch"]
+templates = ["lightgbm>=4", "torch"]
+dev = ["pytest", "lightgbm>=4"]
+
+[project.urls]
+Homepage = "https://uplift-lab.vercel.app"
+Source = "https://github.com/Funbucket/upliftlab"
+
+[project.scripts]
+upliftlab = "upliftlab.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["upliftlab*"]
+
+[tool.setuptools.package-data]
+"upliftlab.algorithms" = ["*.py"]
+"upliftlab" = ["templates/*.py", "ui/index.html"]  # ui/ is copied from dist/ by npm run build
