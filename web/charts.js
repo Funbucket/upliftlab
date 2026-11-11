@@ -1,5 +1,5 @@
 // SVG line charts with one y-axis, a recessive grid, 2px lines and a crosshair tooltip that lists every series.
-import {esc, isNum} from './lib.js?v=0.25.0';
+import {esc, isNum} from './lib.js?v=0.25.1';
 
 const M = {top: 14, right: 16, bottom: 30, left: 48};
 

@@ -1,8 +1,8 @@
 // The main screen: what it does, the three-step launcher, and the result right below it.
-import {$, go} from '../lib.js?v=0.25.0';
-import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.25.0';
-import {launcherPanel} from './launcher.js?v=0.25.0';
-import {resultsPanel} from './results.js?v=0.25.0';
+import {$, go} from '../lib.js?v=0.25.1';
+import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.25.1';
+import {launcherPanel} from './launcher.js?v=0.25.1';
+import {resultsPanel} from './results.js?v=0.25.1';
 
 export function workspaceView(root, {id, query}) {
   const data = query.get('data'), algo = query.get('algo');

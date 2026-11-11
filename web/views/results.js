@@ -1,9 +1,9 @@
 // The right panel: the leaderboard, the Exploit group's covariates, per-cycle metrics and the row-level log.
-import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.25.0';
-import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.25.0';
-import {lineChart, interpolate, responsive, interval} from '../charts.js?v=0.25.0';
-import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from '../summary.js?v=0.25.0';
-import {downloadReport, printReport, copySummary} from '../report.js?v=0.25.0';
+import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.25.1';
+import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.25.1';
+import {lineChart, interpolate, responsive, interval} from '../charts.js?v=0.25.1';
+import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from '../summary.js?v=0.25.1';
+import {downloadReport, printReport, copySummary} from '../report.js?v=0.25.1';
 
 const USE = {train: '학습', validation: '검증', test: '오프라인 평가'};
 const upliftK = run => (isBudget(run) ? run.plan?.budget ?? run.config?.budget : run.plan?.target ?? run.config?.target);
@@ -24,13 +24,12 @@ export function resultsPanel(el, run) {
   const selectedId = () => (armsOf(run).some(a => a.id === selected) ? selected : leaderId());
   const cycleNow = () => run.cycles.find(c => c.cycle === cycleAt) || run.cycles.at(-1);
 
-  // The answer stays on top: the run, its progress and the conclusion with the bars. Everything else is one click away.
+  // The answer on top (the run, its progress, the conclusion with the bars), then the ranking table and the analysis.
   el.innerHTML = `<div id="run-bar" class="run-bar"></div><div id="run-live"></div><div id="run-verdict"></div>
-    <details class="more" id="more"><summary><b>순위표와 분석 자세히 보기</b><small>지표별 순위 · 1위가 고른 사용자 · 사이클별 지표 · Cost Curve · 시뮬레이션 구조</small></summary><div class="more-body">
-    <section class="sec" id="sec-board"></section><div id="sec-arms"></div><section class="sec" id="sec-picked"></section><section class="sec" id="sec-cycle"></section><section class="sec" id="sec-rows"></section>
+    <div class="analysis" id="analysis"><section class="sec" id="sec-board"></section><div id="sec-arms"></div><section class="sec" id="sec-picked"></section><section class="sec" id="sec-cycle"></section><section class="sec" id="sec-rows"></section>
     <section class="sec"><div class="sec-head"><div><h2>사이클별 효율 개선</h2><p>사이클마다 Exploit의 비용 효율이 Explore보다 몇 % 높은지예요. 0%는 Explore benchmark와 같은 수준이에요.</p></div></div><div class="legend" id="gain-legend"></div><div id="gain-chart" class="chart-box"></div></section>
     <section class="sec"><div class="sec-head"><div><h2 id="curve-title">Cost Curve</h2><p id="curve-note"></p></div><div class="sec-tools"><div class="seg" role="radiogroup" aria-label="곡선"><button type="button" role="radio" aria-checked="true" data-curve="cost">Cost Curve</button><button type="button" role="radio" aria-checked="false" data-curve="qini">Qini Curve</button></div></div></div><div class="legend" id="curve-legend"></div><div id="curve-chart" class="chart-box"></div></section>
-    <details class="how" id="how"></details><details class="fold" id="defs"></details></div></details>`;
+    <details class="how" id="how"></details><details class="fold" id="defs"></details></div>`;
 
   function bar() {
     const p = run.plan, c = run.config, status = {starting: '준비 중', running: '실행 중', paused: '일시정지', stopped: '중단된 실행', failed: '실행 실패', done: '실행 완료'}[run.status] || '실행 완료';

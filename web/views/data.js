@@ -1,6 +1,6 @@
-// Datasets: synthetic markets, public experiments and uploaded logs, with column mapping, validity checks and a profile.
-import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.25.0';
-import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.25.0';
+// Datasets: the public Criteo sample and uploaded logs, with column mapping, validity checks and a profile.
+import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.25.1';
+import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.25.1';
 
 const ROLES = [['feature', '공변량'], ['treatment', '처치'], ['outcome', '결과'], ['cost', '비용'], ['skip', '제외']];
 const LEVELS = {ok: ['통과', 'check-ok'], warn: ['경고', 'check-warn'], bad: ['오류', 'check-bad']};
@@ -9,12 +9,12 @@ const MAX_MB = 100;
 export function dataView(root, {id, query}) {
   const d = dataset(id) || state.datasets[0];
   let upload = query.get('upload') ? {stage: 'pick'} : null;
-  root.innerHTML = `<section class="page data"><a class="back" href="#/">← 시뮬레이션</a><header class="page-head row"><div><h1>데이터셋</h1><p>합성 데이터는 잠재 결과를 알아서 참값과 비교할 수 있어요. 실험 로그는 기록된 처치와 결과를 사이클별로 나눠 replay해요.</p></div><button type="button" class="btn btn-primary" data-act="upload">CSV 업로드</button></header>
+  root.innerHTML = `<section class="page data"><a class="back" href="#/">← 시뮬레이션</a><header class="page-head row"><div><h1>데이터셋</h1><p>처치를 무작위로 나눈 실험 로그예요. 기록된 처치와 결과를 사이클별로 나눠 replay해요.</p></div><button type="button" class="btn btn-primary" data-act="upload">CSV 업로드</button></header>
     <div id="upload"></div><div class="data-layout"><nav class="card data-nav" id="data-nav" aria-label="데이터셋 목록"></nav><div class="data-main" id="data-detail"></div></div>
     <input type="file" accept=".csv,text/csv,text/plain" id="file" hidden></section>`;
 
   function nav() {
-    const groups = [['합성', 'synthetic'], ['공개 실험', 'public'], ['업로드', 'upload']];
+    const groups = [['공개 실험', 'public'], ['업로드', 'upload']];
     $('#data-nav', root).innerHTML = groups.map(([title, kind]) => {
       const list = state.datasets.filter(x => x.kind === kind);
       return `<h3 class="group">${title}<span>${list.length}</span></h3>${list.length ? list.map(x => `<a href="#/data/${encodeURIComponent(x.id)}" class="${x.id === d.id ? 'is-on' : ''}"><b>${esc(x.name)}</b><small>${x.kind === 'synthetic' ? '참값 있음' : x.bundled ? `표본 ${int(x.rows)}행` : x.stored ? `${int(x.stored.profile?.rows)}행` : x.kind === 'public' ? '업로드 전' : ''}</small></a>`).join('') : '<p class="muted small pad">업로드한 CSV가 여기에 표시돼요.</p>'}`;

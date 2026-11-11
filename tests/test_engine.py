@@ -628,7 +628,8 @@ def test_criteo_sample_is_bundled_mapped_and_still_randomized():
     assert .008 < ate < .012, 'the visit uplift of the full Criteo data is about +1.0%p'
     checks = {c['id']: c['level'] for c in datasets.quality(data.X, data.t, data.y, data.cost, data.features)}
     assert set(checks.values()) == {'ok'}, checks
-    assert [d['id'] for d in datasets.catalog()] == ['synthetic/base', 'public/criteo']
+    assert [d['id'] for d in datasets.catalog()] == ['public/criteo'], 'the app lists the public experiment; synthetic data stays engine-only'
+    assert call('describe_dataset', id='synthetic/base')['profile']['truth'], 'the quick check and the CLI still use the synthetic experiment'
     bridge.state.update(runtime='local')
     try:
         assert bridge.fetch_dataset('public/criteo')['mapping']['outcome'] == 'visit'

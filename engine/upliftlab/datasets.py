@@ -44,8 +44,9 @@ BLANKS = {'', 'na', 'n/a', 'nan', 'null', 'none'}
 
 
 def catalog():
-    synthetic = [{**SYNTHETIC_FIELDS, **d, 'kind': 'synthetic', 'truth': True, 'features': SyntheticScenario.features, 'pool': 20000, 'treatments': len(SyntheticScenario.LEVELS.get(d['preset'], SyntheticScenario.SINGLE)['cost'])} for d in SYNTHETIC]
-    return synthetic + [{**d, 'kind': 'public', 'truth': False} for d in PUBLIC]
+    """The datasets the app lists: the public experiments. The synthetic experiment is not listed; it stays in the engine for the
+    quick check of an algorithm, the example upload file, the tests and `upliftlab run --data synthetic/base`."""
+    return [{**d, 'kind': 'public', 'truth': False} for d in PUBLIC]
 
 
 def synthetic_preset(dataset_id):

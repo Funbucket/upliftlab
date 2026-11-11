@@ -1,8 +1,8 @@
 // App state: the engine, algorithms, datasets and runs. Views subscribe and re-render when something changes.
-import {ENGINE_FILES} from './engine-files.js?v=0.25.0';
-import {CATALOG, EXAMPLE} from './catalog.js?v=0.25.0';
-import {createRuntime} from './runtime.js?v=0.25.0';
-import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.25.0';
+import {ENGINE_FILES} from './engine-files.js?v=0.25.1';
+import {CATALOG, EXAMPLE} from './catalog.js?v=0.25.1';
+import {createRuntime} from './runtime.js?v=0.25.1';
+import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.25.1';
 
 const USER_KEY = 'upliftlab.algorithms.v15', RUN_KEY = 'upliftlab.runs.v16', DRAFT_KEY = 'upliftlab.draft.v22', MAX_RUNS = 12, KEEP_TRACES = 3;
 const SETTINGS = {mode: 'quantile', budget: .4, efficiency: .2, baseLearner: 'ridge'};  // results made before these settings existed used these values
@@ -156,7 +156,7 @@ export async function profileOf(id) {
 // Names of the outcome and cost for a dataset, used in column headers and metric labels.
 export function wordsFor(id) {
   const d = dataset(id);
-  if (d?.kind === 'synthetic') return {data: d.name, outcome: '리텐션', incR: '증분 리텐션', unit: '명', cost: '보상 비용', binary: true};
+  if (d?.kind === 'synthetic' || String(id).startsWith('synthetic/')) return {data: d?.name || '합성 쿠폰 실험', outcome: '리텐션', incR: '증분 리텐션', unit: '명', cost: '보상 비용', binary: true};  // runs saved before the synthetic data left the list
   if (d?.id === 'public/criteo') return {data: d.name, outcome: '방문', incR: '증분 방문', unit: '명', cost: '광고 대상 인원', binary: true};
   const m = d?.stored?.mapping, outcome = m?.outcome || '결과';
   return {data: d?.name || id || '데이터', outcome, incR: `증분 ${outcome}`, unit: '', cost: m ? m.cost || '처치 건수' : '비용', binary: false};
