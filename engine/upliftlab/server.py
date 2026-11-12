@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-from . import bridge
+from . import bridge, datasets
 
 LOCK = threading.Lock()
 # The UI is ES modules and a web font. Some systems map .js to text/plain (the Windows registry can), which browsers refuse
@@ -44,8 +44,17 @@ def make_handler(web_root):
                 return self._json(json.loads(bridge.call('info')))
             file = (web_root / path.lstrip('/')).resolve() if path != '/' else web_root / 'index.html'
             if web_root not in file.parents and file != web_root / 'index.html' or not file.is_file():
-                self.send_error(404)
-                return
+                # A public sample the pip package leaves out: served from the user cache, downloaded on first use.
+                sample = next((d for d in datasets.PUBLIC if path == '/' + d['bundled']), None)
+                try:
+                    file = datasets.bundled_path(sample['bundled'], sample.get('sha256')) if sample else None
+                except FileNotFoundError as error:
+                    print(error, flush=True)
+                    self.send_error(502, 'sample download failed')
+                    return
+                if not file:
+                    self.send_error(404)
+                    return
             body = file.read_bytes()
             self.send_response(200)
             self.send_header('Content-Type', TYPES.get(file.suffix) or mimetypes.guess_type(file.name)[0] or 'application/octet-stream')
@@ -89,7 +98,7 @@ def ui_root(web=None):
     for folder in ([Path(web)] if web else [here / 'ui', here.parents[1] / 'web']):
         if (folder / 'index.html').is_file():
             return folder.resolve()
-    raise SystemExit(f'web UI not found{f" at {web}" if web else ""}. Install with pip install git+https://github.com/Funbucket/upliftlab, run from a source checkout, or pass --web.')
+    raise SystemExit(f'web UI not found{f" at {web}" if web else ""}. Install with pip install upliftlab, run from a source checkout, or pass --web.')
 
 
 class Server(ThreadingHTTPServer):

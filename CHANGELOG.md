@@ -1,5 +1,11 @@
 # 변경 기록
 
+## v0.26.1
+
+- **설치:** PyPI에 올려 `pip install upliftlab` 또는 `uvx upliftlab` 한 줄로 설치해요. 버전 태그를 올리면 GitHub Actions가 테스트하고 빌드해서 PyPI에 배포해요(trusted publishing, 저장된 토큰 없음).
+- **Criteo 표본:** 라이선스(CC BY-NC-SA 4.0) 때문에 pip 패키지에는 넣지 않아요. 로컬판은 처음 쓸 때 GitHub 저장소에서 한 번 내려받아 SHA-256을 확인하고 사용자 캐시(`~/.cache/upliftlab`, `UPLIFTLAB_CACHE`로 변경)에 둬요. 웹 사이트와 소스 체크아웃은 예전처럼 `web/data`의 파일을 써요.
+- **README:** PyPI에서도 보이도록 이미지와 링크를 절대 주소로 바꿨어요.
+
 ## v0.26
 
 - **다크 디자인:** 화면 전체를 다크 테마 하나로 바꿨어요. 강조색은 파랑 하나이고, 초록(실행 중)과 주황(사진 판정)은 상태를 알릴 때만 써요. 글꼴은 Pretendard(한국어), Archivo(숫자), Geist Mono(코드)로 바꿔 자체 호스팅해요. 알고리즘 범주색은 다크 배경용 단계로 바꿨어요.

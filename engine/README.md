@@ -5,7 +5,7 @@
 ## 로컬
 
 ```bash
-pip install git+https://github.com/Funbucket/upliftlab
+pip install upliftlab
 upliftlab                                    # http://127.0.0.1:4180 을 브라우저로 열어요 (upliftlab serve --no-browser로 끄기)
 upliftlab check my_model.py                  # 쓰는 라이브러리 확인 + 합성 데이터로 한 번 학습
 upliftlab run --data public/criteo --algorithms all --cycles 8 --out result.json

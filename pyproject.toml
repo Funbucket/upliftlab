@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "upliftlab"
-version = "0.26.0"
+version = "0.26.1"
 description = "Find the uplift model that gives the most incremental outcome for the same budget, on your own experiment data"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -24,12 +24,15 @@ dev = ["pytest", "lightgbm>=4"]
 [project.urls]
 Homepage = "https://uplift-lab.vercel.app"
 Source = "https://github.com/Funbucket/upliftlab"
+Documentation = "https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md"
+Changelog = "https://github.com/Funbucket/upliftlab/blob/main/CHANGELOG.md"
 
 [project.scripts]
 upliftlab = "upliftlab.__main__:main"
 
 # The Python engine lives in engine/upliftlab. The web UI in web/ ships inside the package as upliftlab/ui, as is (no build
-# step), so `pip install git+https://github.com/Funbucket/upliftlab` gives the same screen as the website.
+# step), so `pip install upliftlab` gives the same screen as the website. The Criteo sample (CC BY-NC-SA 4.0) stays out of the
+# package: its first local use downloads it from this repository into the user cache (datasets.bundled_path).
 [tool.setuptools]
 packages = ["upliftlab", "upliftlab.algorithms", "upliftlab.ui"]
 
@@ -40,4 +43,4 @@ upliftlab = "engine/upliftlab"
 [tool.setuptools.package-data]
 upliftlab = ["templates/*.py"]
 "upliftlab.algorithms" = ["lite/*.py"]
-"upliftlab.ui" = ["*.html", "*.css", "*.js", "views/*.js", "fonts/*.css", "fonts/LICENSE", "fonts/files/*.woff2", "vendor/*", "data/*"]
+"upliftlab.ui" = ["*.html", "*.css", "*.js", "views/*.js", "fonts/*.css", "fonts/LICENSE", "fonts/files/*.woff2", "vendor/*", "data/LICENSE-criteo.md"]

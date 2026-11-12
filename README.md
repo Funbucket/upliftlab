@@ -1,15 +1,16 @@
-<a href="https://uplift-lab.vercel.app"><img src="docs/images/banner.png" alt="upliftlab. 같은 예산을 주고, 모델끼리 겨뤄요. Criteo 예시의 최종 순위표: Duality R-Learner 786, R-Learner 783, X-Learner 759, T-Learner 757, DML 699, Random 485. 사진 판정: 1~5위 차이는 95% CI 안이고 Random과의 차이는 유의해요."></a>
+<a href="https://uplift-lab.vercel.app"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/banner.png" alt="upliftlab. 같은 예산을 주고, 모델끼리 겨뤄요. Criteo 예시의 최종 순위표: Duality R-Learner 786, R-Learner 783, X-Learner 759, T-Learner 757, DML 699, Random 485. 사진 판정: 1~5위 차이는 95% CI 안이고 Random과의 차이는 유의해요."></a>
 
 <div align="center">
 
 **같은 예산에서 증분 성과를 가장 많이 내는 uplift 모델을, 운영 전에 찾아요.**
 
 [![Live demo](https://img.shields.io/badge/demo-uplift--lab.vercel.app-4d8dff?style=flat-square)](https://uplift-lab.vercel.app)
+[![PyPI](https://img.shields.io/pypi/v/upliftlab?style=flat-square&color=11141a&label=pypi)](https://pypi.org/project/upliftlab/)
 [![Built on EconML](https://img.shields.io/badge/built%20on-EconML-11141a?style=flat-square)](https://github.com/py-why/EconML)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-11141a?style=flat-square)](pyproject.toml)
-[![MIT License](https://img.shields.io/badge/license-MIT-11141a?style=flat-square)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-11141a?style=flat-square)](https://github.com/Funbucket/upliftlab/blob/main/pyproject.toml)
+[![MIT License](https://img.shields.io/badge/license-MIT-11141a?style=flat-square)](https://github.com/Funbucket/upliftlab/blob/main/LICENSE)
 
-**[웹에서 바로 실행 →](https://uplift-lab.vercel.app)** &nbsp;·&nbsp; [로컬 설치](#빠른-시작) &nbsp;·&nbsp; [사용 안내](docs/guide.md)
+**[웹에서 바로 실행 →](https://uplift-lab.vercel.app)** &nbsp;·&nbsp; [로컬 설치](#빠른-시작) &nbsp;·&nbsp; [사용 안내](https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md)
 
 <sub>위 순위표는 Criteo 광고 실험 199,837명을 예산 40%, 8사이클로 돌린 실제 결과예요(EconML). 사이트에서는 사이클 1부터 8까지 다시 보여 줘요.</sub>
 
@@ -31,27 +32,18 @@ Qini가 가장 높은 모델이 운영에서도 가장 많이 남길까요? 오�
 **로컬 · EconML로.** 같은 화면이 내 Python에서 돌아가요. 큰 데이터, 이미 설치한 라이브러리, GPU를 그대로 써요.
 
 ```bash
-uvx --from git+https://github.com/Funbucket/upliftlab upliftlab
-```
-
-<details>
-<summary>pip로 내 환경에 설치하기</summary>
-
-```bash
-pip install git+https://github.com/Funbucket/upliftlab
+pip install upliftlab
 upliftlab                # http://127.0.0.1:4180 이 열려요
 ```
 
-uvx는 격리된 환경을 따로 만들어서 내 Python 환경을 건드리지 않아요. 내 알고리즘에서 이미 깔린 LightGBM이나 PyTorch를 쓰려면 pip로 그 환경에 설치해요.
-
-</details>
+uv를 쓴다면 설치 없이 `uvx upliftlab` 한 줄이면 돼요. 처음 실행할 때 Criteo 표본(2.3MB)을 한 번 내려받아 두고, 그다음부터는 그대로 써요.
 
 > [!NOTE]
 > 브라우저에서는 EconML을 쓸 수 없어서, 웹은 같은 방법을 scikit-learn으로 쓴 경량판으로 돌려요. 결과 화면과 보고서에 어느 쪽으로 돌렸는지 표시해요.
 
 ## 결과 읽는 법
 
-<a href="https://uplift-lab.vercel.app"><img src="docs/images/verdict.png" alt="결과 화면. 결승선은 박빙, 기준선과는 큰 차이. Random 대비 증분 방문 +62%, 1위와의 차이와 95% CI, P1~P5와 기준선 순위 카드"></a>
+<a href="https://uplift-lab.vercel.app"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/verdict.png" alt="결과 화면. 결승선은 박빙, 기준선과는 큰 차이. Random 대비 증분 방문 +62%, 1위와의 차이와 95% CI, P1~P5와 기준선 순위 카드"></a>
 
 - **제목**이 결론이에요. 2위와의 차이가 95% CI 안이면 `결승선은 박빙`이라고 쓰고, 기준선(Random)과의 차이가 확실한지도 함께 적어요.
 - **Random 대비**는 1위가 무작위로 고를 때보다 같은 예산으로 성과를 얼마나 더 냈는지예요.
@@ -114,9 +106,9 @@ upliftlab run --data my_experiment.csv --algorithm my_model.py
 
 ## 더 보기
 
-[사용 안내](docs/guide.md) · 선정 방식 5가지, 명령줄 옵션, 결과 읽는 법<br>
-[알고리즘 계약](engine/README.md) · `fit`과 `predict`에 들어오는 값, 코드 검사 규칙<br>
-[개발 참여](CONTRIBUTING.md) · 빌드, 테스트, 폴더 구조<br>
-[변경 기록](CHANGELOG.md)
+[사용 안내](https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md) · 선정 방식 5가지, 명령줄 옵션, 결과 읽는 법<br>
+[알고리즘 계약](https://github.com/Funbucket/upliftlab/blob/main/engine/README.md) · `fit`과 `predict`에 들어오는 값, 코드 검사 규칙<br>
+[개발 참여](https://github.com/Funbucket/upliftlab/blob/main/CONTRIBUTING.md) · 빌드, 테스트, 폴더 구조<br>
+[변경 기록](https://github.com/Funbucket/upliftlab/blob/main/CHANGELOG.md)
 
-<sub>[MIT](LICENSE). 함께 배포하는 Criteo 표본은 [CC BY-NC-SA 4.0](web/data/LICENSE-criteo.md)이라 비상업적으로만 쓸 수 있어요. Pretendard, Archivo, Geist Mono 글꼴은 SIL Open Font License(`web/fonts/LICENSE`), 편집기 번들은 `web/vendor/LICENSES.txt`를 따라요.</sub>
+<sub>[MIT](https://github.com/Funbucket/upliftlab/blob/main/LICENSE). Criteo 표본은 [CC BY-NC-SA 4.0](https://github.com/Funbucket/upliftlab/blob/main/web/data/LICENSE-criteo.md)이라 비상업적으로만 쓸 수 있어요. pip 패키지에는 넣지 않고 처음 쓸 때 이 저장소에서 내려받아요. Pretendard, Archivo, Geist Mono 글꼴은 SIL Open Font License(`web/fonts/LICENSE`), 편집기 번들은 `web/vendor/LICENSES.txt`를 따라요.</sub>

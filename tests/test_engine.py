@@ -591,16 +591,30 @@ def test_local_ui_is_the_web_folder(tmp_path):
 
 
 def test_the_package_ships_every_file_the_ui_loads():
-    """pyproject.toml installs web/ as upliftlab.ui, so `pip install git+…` serves the same screen. A new file or folder in
-    web/ that the globs miss would be missing from the local edition."""
+    """pyproject.toml installs web/ as upliftlab.ui, so `pip install upliftlab` serves the same screen. A new file or folder in
+    web/ that the globs miss would be missing from the local edition. The public samples are the one planned exception: they
+    stay out of the package and are downloaded on first use."""
     import re
+    from upliftlab import datasets
     root = Path(__file__).resolve().parents[1]
     block = re.search(r'"upliftlab\.ui" = \[(.*?)\]', (root / 'pyproject.toml').read_text().split('[tool.setuptools.package-data]')[1]).group(1)
     globs = re.findall(r'"([^"]+)"', block)
     shipped = {p for g in globs for p in (root / 'web').glob(g) if p.is_file()}
-    present = {p for p in (root / 'web').rglob('*') if p.is_file() and p.name != 'README.md'}
+    samples = {root / 'web' / d['bundled'] for d in datasets.PUBLIC}
+    present = {p for p in (root / 'web').rglob('*') if p.is_file() and p.name != 'README.md'} - samples
     assert present - shipped == set(), sorted(str(p.relative_to(root)) for p in present - shipped)
+    assert not samples & shipped, 'the Criteo sample (CC BY-NC-SA) must not go into the package'
+    assert (root / 'web' / 'data' / 'LICENSE-criteo.md') in shipped
     assert (root / 'web' / 'index.html') in shipped and (root / 'web' / 'views' / 'results.js') in shipped
+
+
+def test_a_public_sample_matches_the_checksum_its_download_is_checked_against():
+    """The pip package downloads the sample from GitHub and checks this SHA-256. A new sample needs a new checksum."""
+    import hashlib
+    from upliftlab import datasets
+    root = Path(__file__).resolve().parents[1]
+    for d in datasets.PUBLIC:
+        assert hashlib.sha256((root / 'web' / d['bundled']).read_bytes()).hexdigest() == d['sha256'], d['id']
 
 
 def test_each_builtin_has_an_econml_file_and_a_lite_file_with_the_same_name():

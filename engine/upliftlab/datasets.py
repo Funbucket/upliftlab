@@ -7,6 +7,7 @@ import csv
 import gzip
 import hashlib
 import io
+import os
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,7 +27,8 @@ CRITEO = {
     'summary': 'Criteo가 공개한 1,398만 명 규모의 광고 무작위 실험에서 처치군과 대조군을 10만 명씩 뽑은 표본이에요. 광고 후 사이트 방문이 결과예요.',
     'source': 'https://ailab.criteo.com/criteo-uplift-prediction-dataset/',
     'download': 'https://huggingface.co/datasets/criteo/criteo-uplift',
-    'license': 'CC BY-NC-SA 4.0 · 비상업적으로만 쓰고 출처를 밝혀요. 표본은 upliftlab과 함께 배포해요.',
+    'license': 'CC BY-NC-SA 4.0 · 비상업적으로만 쓰고 출처를 밝혀요. 표본은 웹 사이트와 GitHub 저장소에 두고, pip 패키지는 처음 쓸 때 한 번 내려받아요.',
+    'sha256': '2245c103df7668117272acf7f19f59c3296fff41bc871ded29fa3956d0103003',
     'treatment': '광고 대상 = 1, 대조군 = 0', 'outcome': 'visit · 사이트 방문 (0/1)', 'cost': '열 없음 · 처치 1건당 1',
     'mapping': {'treatment': 'treatment', 'outcome': 'visit', 'cost': None, 'features': [f'f{i}' for i in range(12)]},
 }
@@ -258,13 +260,43 @@ def profile_synthetic(dataset_id, seed=42):
     return profile(pop.X, t, y, cost, SyntheticScenario.features, pop.tau_r, pop.tau_c)
 
 
-def bundled_path(name):
-    """A file under web/data: inside the package (upliftlab/ui/data) or in a source checkout (web/data)."""
+RAW = 'https://raw.githubusercontent.com/Funbucket/upliftlab/main/web/'
+
+
+def cache_dir():
+    """Where downloaded samples live: $UPLIFTLAB_CACHE, else the user cache folder (~/.cache/upliftlab, %LOCALAPPDATA% on Windows)."""
+    if os.environ.get('UPLIFTLAB_CACHE'):
+        return Path(os.environ['UPLIFTLAB_CACHE'])
+    base = os.environ.get('LOCALAPPDATA') if os.name == 'nt' else os.environ.get('XDG_CACHE_HOME')
+    return Path(base or Path.home() / '.cache') / 'upliftlab'
+
+
+def bundled_path(name, sha256=None):
+    """A file under web/data: in a source checkout (web/data), in a package that carries it (upliftlab/ui/data), or downloaded once
+    from the GitHub repository into the user cache. The pip package leaves the Criteo sample out because of its non-commercial
+    license, so its first use fetches it, checks the SHA-256 and keeps it."""
     here = Path(__file__).resolve().parent
-    for path in (here / 'ui' / name, here.parents[1] / 'web' / name):
+    cached = cache_dir() / name
+    for path in (here.parents[1] / 'web' / name, here / 'ui' / name, cached):
         if path.is_file():
             return path
-    raise FileNotFoundError(f'{name} 파일이 없어요. 패키지를 다시 설치해 주세요.')
+    if not sha256:
+        raise FileNotFoundError(f'{name} 파일이 없어요. 패키지를 다시 설치해 주세요.')
+    import sys
+    import urllib.request
+    print(f'Criteo 표본을 처음 한 번 내려받아요 → {cached}', file=sys.stderr, flush=True)
+    try:
+        with urllib.request.urlopen(RAW + name, timeout=60) as response:
+            data = response.read()
+    except OSError as error:
+        raise FileNotFoundError(f'{name} 파일을 내려받지 못했어요 ({error}). 네트워크를 확인하거나 {RAW + name} 을 {cached} 에 직접 두세요.') from error
+    if hashlib.sha256(data).hexdigest() != sha256:
+        raise FileNotFoundError(f'내려받은 {name} 파일의 SHA-256이 달라요. 잠시 뒤 다시 시도해 주세요.')
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    partial = cached.with_name(cached.name + '.part')
+    partial.write_bytes(data)
+    partial.replace(cached)
+    return cached
 
 
 def fetch(dataset_id):
@@ -272,7 +304,7 @@ def fetch(dataset_id):
     meta = next((d for d in PUBLIC if d['id'] == dataset_id), None)
     if meta is None:
         raise ValueError(f'없는 공개 데이터예요: {dataset_id}')
-    with gzip.open(bundled_path(meta['bundled']), 'rt', encoding='utf-8') as f:
+    with gzip.open(bundled_path(meta['bundled'], meta.get('sha256')), 'rt', encoding='utf-8') as f:
         return f.read()
 
 

@@ -1,10 +1,10 @@
 // The main screen: the hero with the timing tower, the setup console, the result of the run, how a cycle works, and how to run
 // it locally.
-import {$, go} from '../lib.js?v=0.26.0';
-import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.26.0';
-import {launcherPanel} from './launcher.js?v=0.26.0';
-import {resultsPanel} from './results.js?v=0.26.0';
-import {towerPanel, loopPanel, installPanel} from './home.js?v=0.26.0';
+import {$, go} from '../lib.js?v=0.26.1';
+import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.26.1';
+import {launcherPanel} from './launcher.js?v=0.26.1';
+import {resultsPanel} from './results.js?v=0.26.1';
+import {towerPanel, loopPanel, installPanel} from './home.js?v=0.26.1';
 
 const STEPS = [
   ['대상을 골라요', '모델마다 점수가 높은 순으로, 같은 예산 안에서 처치할 사용자를 골라요.'],
@@ -42,7 +42,7 @@ export function workspaceView(root, {id, query}) {
       <div class="loop"><svg class="lp" viewBox="0 0 640 350" role="img" aria-label="선정, 처치와 대조, 측정, 재학습을 도는 사이클"></svg>
         <ol class="lp-steps">${STEPS.map(([b, p], i) => `<li><span class="caps">S${i + 1}</span><b>${b}</b><p>${p}</p></li>`).join('')}</ol></div></div></section>
     <section class="band" id="install"><div class="wrap"><div class="band-head"><h2>로컬에서는 한 줄.<em>EconML로, 내 데이터 그대로.</em></h2><p>같은 화면이 내 Python에서 열려요. 큰 데이터와 이미 깔린 라이브러리, GPU를 그대로 써요.</p></div>
-      <div class="inst"><div class="in" id="in"></div><ol class="in-after"><li><span class="caps">01</span><b>격리된 환경을 만들어요</b><p>uvx를 쓰면 내 Python 환경은 건드리지 않아요.</p></li><li><span class="caps">02</span><b>EconML과 엔진을 설치해요</b><p>기본 모델 6개가 EconML로 돌아가요.</p></li><li><span class="caps">03</span><b>브라우저가 열려요</b><p><code>http://127.0.0.1:4180</code>에서 이 화면을 그대로 써요.</p></li></ol></div></div></section>
+      <div class="inst"><div class="in" id="in"></div><ol class="in-after"><li><span class="caps">01</span><b>한 줄로 설치해요</b><p>pip이나 uvx 한 줄이에요. 기본 모델 6개가 EconML로 함께 설치돼요.</p></li><li><span class="caps">02</span><b>Criteo 표본을 한 번 받아요</b><p>처음 실행할 때 2.3MB를 내려받아 캐시에 두고, 그다음부터는 그대로 써요.</p></li><li><span class="caps">03</span><b>브라우저가 열려요</b><p><code>http://127.0.0.1:4180</code>에서 이 화면을 그대로 써요.</p></li></ol></div></div></section>
     <footer class="foot"><div class="wrap"><p class="foot-line">같은 예산이면,<br><span>더 남기는 모델로.</span></p>
       <nav><a href="https://github.com/Funbucket/upliftlab" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md" target="_blank" rel="noopener">사용 안내</a><a href="https://github.com/Funbucket/upliftlab/blob/main/CHANGELOG.md" target="_blank" rel="noopener">변경 기록</a><span>MIT · Criteo 표본 CC BY-NC-SA 4.0</span></nav></div></footer></div>`;
   const parts = [launcherPanel($('#launcher', root)), resultsPanel($('#main', root), run), towerPanel($('#tower', root)), loopPanel($('.lp', root), $('.lp-steps', root)), installPanel($('#in', root))];

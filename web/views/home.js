@@ -1,8 +1,8 @@
 // The home page's own pieces: the timing tower that replays the bundled example cycle by cycle, the run loop drawn as a
 // circuit, and the install commands. They read the bundled example only, so they stay the same whatever run is shown below.
-import {$, $$, esc, int, isNum, josa, selectionLabel} from '../lib.js?v=0.26.0';
-import {EXAMPLE_RUN, wordsFor} from '../store.js?v=0.26.0';
-import {armsOf, datasetOf} from '../summary.js?v=0.26.0';
+import {$, $$, esc, int, isNum, josa, selectionLabel} from '../lib.js?v=0.26.1';
+import {EXAMPLE_RUN, wordsFor} from '../store.js?v=0.26.1';
+import {armsOf, datasetOf} from '../summary.js?v=0.26.1';
 
 const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ROW = 58;
@@ -99,11 +99,10 @@ export function loopPanel(svg, steps) {
   return {destroy: () => cancelAnimationFrame(frame)};
 }
 
-// The ways to run it locally. The package is installed from GitHub until it is on PyPI.
-const REPO = 'git+https://github.com/Funbucket/upliftlab';
+// The ways to run it locally, from PyPI.
 const INSTALL = [
-  {tab: 'uvx', lines: [`uvx --from ${REPO} upliftlab`], note: '내 Python 환경에 설치하지 않고 바로 실행해요. uv가 격리된 환경을 따로 만들어요.'},
-  {tab: 'pip', lines: [`pip install ${REPO}`, 'upliftlab'], note: '내 Python 환경에 설치해요. 이미 깔린 LightGBM, PyTorch를 내 알고리즘에서 그대로 써요.'},
+  {tab: 'pip', lines: ['pip install upliftlab', 'upliftlab'], note: '내 Python 환경에 설치해요. 이미 깔린 LightGBM, PyTorch를 내 알고리즘에서 그대로 써요.'},
+  {tab: 'uvx', lines: ['uvx upliftlab'], note: '내 Python 환경에 설치하지 않고 바로 실행해요. uv가 격리된 환경을 따로 만들어요.'},
   {tab: '명령줄 비교', lines: ['upliftlab run --data my.csv --algorithm my_model.py'], note: '화면 없이 내 데이터와 내 모델로 비교하고, 순위표를 터미널에 보여 줘요.'},
 ];
 export function installPanel(el) {

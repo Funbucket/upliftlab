@@ -62,9 +62,13 @@ EconML은 Linux x86_64, macOS, Windows x86_64용 휠이 있어서 `pip install`�
 ## 로컬 실행
 
 ```bash
-pip install git+https://github.com/Funbucket/upliftlab
+pip install upliftlab
 upliftlab                      # 화면을 열어요. upliftlab serve와 같아요
 ```
+
+- uv를 쓴다면 `uvx upliftlab`으로 설치 없이 실행할 수 있어요.
+- Criteo 표본은 라이선스(CC BY-NC-SA 4.0) 때문에 패키지에 넣지 않아요. 처음 쓸 때 GitHub 저장소에서 한 번 내려받아 SHA-256을 확인하고 `~/.cache/upliftlab`(Windows는 `%LOCALAPPDATA%\upliftlab`)에 둬요. 위치는 `UPLIFTLAB_CACHE`로 바꿀 수 있어요.
+- 개발 중인 최신 코드는 `pip install git+https://github.com/Funbucket/upliftlab`으로 설치해요.
 
 - `Successfully installed UNKNOWN-0.0.0`이 나오면 pip이 오래된 거예요(Ubuntu 22.04 기본 pip 22.0). `python3 -m pip install -U pip`으로 올린 뒤 다시 설치하세요.
 - 4180 포트가 쓰이고 있으면 다음 빈 포트를 써요. `upliftlab serve --port 8080 --no-browser`처럼 바꿀 수 있어요.
