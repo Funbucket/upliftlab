@@ -1,13 +1,13 @@
-// The main screen's launcher: ① pick the data, ② pick the models, ③ pick the selection rule and its budget, then start.
-// Cycles, the Explore share, the base model and the seed fold under 고급 설정 with working defaults.
-import {$, esc, int, share, duration, go, BRIEF, MAX_ALGORITHMS, SELECTION, BUDGET_MODES} from '../lib.js?v=0.25.1';
-import {state, subscribe, dataset, datasetReady, running, startRun, estimate, algorithm, unavailable, setDraft, selectAlgorithm, planOf} from '../store.js?v=0.25.1';
+// The setup console: a status line of the current settings, then data, models, and the selection rule with its one number, and
+// the start bar. Cycles, the Explore share, the base model and the seed fold under 고급 설정 with working defaults.
+import {$, esc, int, share, duration, go, BRIEF, MAX_ALGORITHMS, SELECTION, BUDGET_MODES} from '../lib.js?v=0.26.0';
+import {state, subscribe, dataset, datasetReady, running, startRun, estimate, algorithm, unavailable, setDraft, selectAlgorithm, planOf, wordsFor} from '../store.js?v=0.26.0';
 
 const CYCLES = [4, 6, 8, 10, 12];
 const worst = d => { const levels = (d.stored?.profile?.checks || []).map(c => c.level); return levels.includes('bad') ? 'bad' : levels.includes('warn') ? 'warn' : null; };
 const order = d => (d.id === 'public/criteo' ? 0 : 1);
-const noteOf = d => (d.kind === 'public' ? `공개 광고 실험 · ${int(d.rows)}명 · 결과는 사이트 방문` : `내 데이터 · ${int(d.stored?.profile?.rows)}행`);
 const maxCyclesOf = d => { const rows = d?.stored?.profile?.rows ?? d?.rows; return d && d.kind !== 'synthetic' && rows ? Math.max(1, Math.min(12, Math.floor(rows / 400))) : 12; };
+const ARROW = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 // The one number of each selection rule. The rest of the run's settings are under 고급 설정.
 function knob(c) {
@@ -19,51 +19,59 @@ function knob(c) {
 
 export function launcherPanel(el) {
   let message = '';
-  el.innerHTML = `<div class="launch-row">
-      <div class="step"><div class="step-head"><span class="n">1</span><h2>데이터 고르기</h2></div><p class="step-hint">처치를 무작위로 나눈 실험 데이터예요.</p><div class="dcards" role="radiogroup" aria-label="데이터" id="l-data"></div></div>
-      <div class="step"><div class="step-head"><span class="n">2</span><h2>모델 고르기</h2><small class="step-count" id="l-count"></small></div><p class="step-hint">같은 조건으로 경쟁할 uplift 모델이에요.</p><div id="l-models"></div></div>
-      <div class="step"><div class="step-head"><span class="n">3</span><h2>선정 방식과 예산</h2></div><p class="step-hint">모델 점수로 대상을 고르는 규칙이에요.</p><div id="l-rule"></div><div class="knob" id="l-knob"></div></div>
+  el.innerHTML = `<div class="cs-status" id="l-status" aria-label="현재 설정"></div>
+    <div class="cs-panes">
+      <div class="cs-pane"><h3>데이터</h3><div class="cs-data" role="radiogroup" aria-label="데이터" id="l-data"></div></div>
+      <div class="cs-pane"><h3>모델<small id="l-count"></small></h3><div id="l-models"></div></div>
+      <div class="cs-pane"><h3>선정 방식과 예산</h3><div id="l-rule"></div><div class="cs-gauge" id="l-knob"></div></div>
     </div>
-    <div class="launch-go"><button type="button" class="adv-toggle" data-act="advanced" aria-expanded="false" aria-controls="l-adv"><b>고급 설정</b><small id="l-adv-sum"></small></button><div class="go-right" id="l-go"></div></div>
+    <div class="cs-go"><button type="button" class="adv-toggle" data-act="advanced" aria-expanded="false" aria-controls="l-adv"><b>고급 설정</b><small id="l-adv-sum"></small></button><div class="go-right" id="l-go"></div></div>
     <div class="advanced" id="l-adv" hidden></div>`;
 
+  function status() {
+    const c = state.draft, d = dataset(c.dataset), k = knob(c), engine = state.engine;
+    const chips = [['Data', d?.name?.split(' ')[0] || '—'], ['Models', c.algorithms.length], ['Rule', SELECTION[c.mode]?.name], [k.key === 'budget' ? 'Budget' : 'Value', `${k.sign || ''}${Math.round(c[k.key] * 100)}%`], ['Cycles', planOf(c).cycles], ['Explore', share(c.explore)], ['Run', engine.kind === 'local' ? 'Local' : 'Browser']];
+    $('#l-status', el).innerHTML = chips.map(([key, value]) => `<span class="cs-chip"><span class="caps">${key}</span><b>${esc(value)}</b></span>`).join('');
+  }
   function data() {
     const draft = state.draft, list = state.datasets.filter(d => d.kind !== 'synthetic' && (d.kind !== 'upload' || d.stored)).sort((a, b) => order(a) - order(b));
-    const card = d => {
-      const on = draft.dataset === d.id, ready = datasetReady(d), flag = worst(d);
-      return `<button type="button" role="radio" class="dcard" data-dataset="${esc(d.id)}" aria-checked="${on}" ${ready ? '' : 'disabled'}><span class="mark mark-radio" aria-hidden="true"></span>
-        <span class="dcard-text"><b>${esc(d.name)}${d.id === 'public/criteo' ? '<em class="tag tag-blue">추천</em>' : ''}${flag ? `<em class="tag ${flag === 'bad' ? 'tag-red' : 'tag-amber'}">검사 ${flag === 'bad' ? '오류' : '경고'}</em>` : ''}</b><small>${esc(noteOf(d))}</small></span></button>`;
+    const tile = d => {
+      const on = draft.dataset === d.id, ready = datasetReady(d), flag = worst(d), rows = d.kind === 'public' ? d.rows : d.stored?.profile?.rows, W = wordsFor(d.id);
+      return `<button type="button" role="radio" class="cs-tile" data-dataset="${esc(d.id)}" aria-checked="${on}" ${ready ? '' : 'disabled'}>
+        <b>${esc(d.name)}${d.id === 'public/criteo' ? '<em class="tag tag-solid">추천</em>' : ''}${flag ? `<em class="tag ${flag === 'bad' ? 'tag-red' : 'tag-amber'}">검사 ${flag === 'bad' ? '오류' : '경고'}</em>` : ''}</b>
+        <span class="cs-stats"><span><strong class="fig">${int(rows)}</strong>${d.kind === 'public' ? '사용자' : '행'}</span><span><strong>${esc(W.outcome)}</strong>결과</span>${d.kind === 'public' ? '<span><strong>공개</strong>무작위 실험</span>' : '<span><strong>내 CSV</strong>업로드</span>'}</span></button>`;
     };
-    $('#l-data', el).innerHTML = list.map(card).join('')
-      + '<a class="dcard dcard-add" href="#/data?upload=1"><span class="plus" aria-hidden="true">+</span><span class="dcard-text"><b>내 CSV 올리기</b><small>실험 로그 CSV · 예시 파일로 먼저 해 볼 수 있어요</small></span></a>'
+    $('#l-data', el).innerHTML = list.map(tile).join('')
+      + '<a class="cs-tile cs-add" href="#/data?upload=1"><b>+ 내 CSV 올리기</b><small>처치를 무작위로 나눈 실험 로그 · 예시 파일로 먼저 해 볼 수 있어요</small></a>'
       + `<a class="step-link" href="#/data/${encodeURIComponent(draft.dataset)}">고른 데이터 자세히 보기</a>`;
   }
   function models() {
     const c = state.draft, full = c.algorithms.length >= MAX_ALGORITHMS;
-    const row = a => {
+    const chip = a => {
       const on = c.algorithms.includes(a.id), gone = unavailable(a), broken = a.ok === false || !!gone, off = broken || (!on && full);
       const note = gone ? gone.text : a.ok === false ? `${a.line ? a.line + '번째 줄 · ' : ''}${a.error}` : BRIEF[a.id] || a.summary || '';
-      return `<label class="opt ${on ? 'is-on' : ''} ${off ? 'is-off' : ''}"><input type="checkbox" value="${esc(a.id)}" ${on ? 'checked' : ''} ${off && !on ? 'disabled' : ''}><span class="mark mark-check" aria-hidden="true"></span>
-        <span class="opt-text"><b>${esc(a.name)}</b>${a.builtin ? '' : '<em class="tag tag-blue">내 코드</em>'}${gone ? `<em class="tag tag-red">${esc(gone.short)}</em>` : a.ok === false ? '<em class="tag tag-red">오류</em>' : ''}<small title="${esc(note)}">${esc(note)}</small></span><a class="opt-link" href="#/algorithms/${encodeURIComponent(a.id)}">코드</a></label>`;
+      return `<label class="cs-model ${on ? 'is-on' : ''} ${off ? 'is-off' : ''}"><input type="checkbox" value="${esc(a.id)}" ${on ? 'checked' : ''} ${off && !on ? 'disabled' : ''}><span class="mark mark-check" aria-hidden="true"></span>
+        <span class="cs-model-text"><b>${esc(a.name)}</b>${a.builtin ? '' : '<em class="tag tag-blue">내 코드</em>'}${gone ? `<em class="tag tag-red">${esc(gone.short)}</em>` : a.ok === false ? '<em class="tag tag-red">오류</em>' : ''}<small title="${esc(note)}">${esc(note)}</small></span><a class="opt-link" href="#/algorithms/${encodeURIComponent(a.id)}">코드</a></label>`;
     };
     $('#l-count', el).textContent = `${c.algorithms.length}개 선택`;
-    $('#l-models', el).innerHTML = `<div class="opts l-models">${state.algorithms.map(row).join('')}</div><a class="step-link" href="#/algorithms?new=1">+ 내 알고리즘 추가</a>`;
+    $('#l-models', el).innerHTML = `<div class="cs-models">${state.algorithms.map(chip).join('')}<a class="cs-model cs-add" href="#/algorithms?new=1"><b>+ 내 알고리즘 추가</b></a></div>`;
   }
   function rule() {
     const c = state.draft;
-    $('#l-rule', el).innerHTML = `<div class="opts mode-opts" role="radiogroup" aria-label="선정 방식">${Object.entries(SELECTION).map(([value, m]) => `<button type="button" role="radio" aria-checked="${c.mode === value}" class="opt ${c.mode === value ? 'is-on' : ''}" data-set="mode" data-value="${value}" title="${esc(m.rule)}"><span class="mark mark-radio" aria-hidden="true"></span><span class="opt-text"><b>${m.name}</b><small>${m.who.map(w => w[0]).join(' · ')}</small></span></button>`).join('')}</div>`;
-    const k = knob(c), v = Math.round(c[k.key] * 100);
-    $('#l-knob', el).innerHTML = `<p class="knob-value"><span>${esc(k.label)}</span><b data-out>${k.sign || ''}${v}%</b></p>
-      <input type="range" min="${k.min}" max="${k.max}" step="5" value="${v}" data-range="${k.key}" aria-label="${esc(k.label)}" style="--v:${(v - k.min) / (k.max - k.min) * 100}%">
+    $('#l-rule', el).innerHTML = `<div class="cs-rules" role="radiogroup" aria-label="선정 방식">${Object.entries(SELECTION).map(([value, m]) => `<button type="button" role="radio" aria-checked="${c.mode === value}" class="cs-rule ${c.mode === value ? 'is-on' : ''}" data-set="mode" data-value="${value}" title="${esc(m.rule)}"><b>${m.name}</b><small>${m.who.map(w => w[0]).slice(0, 2).join(' · ')}</small></button>`).join('')}</div>`;
+    const k = knob(c), v = Math.round(c[k.key] * 100), at = (v - k.min) / (k.max - k.min) * 100;
+    $('#l-knob', el).style.setProperty('--v', `${at}%`);
+    $('#l-knob', el).innerHTML = `<p class="knob-value"><span>${esc(k.label)}</span><b class="fig" data-out>${k.sign || ''}${v}%</b></p>
+      <div class="cs-track"><span class="cs-fill"></span><span class="cs-knob"></span><input type="range" min="${k.min}" max="${k.max}" step="5" value="${v}" data-range="${k.key}" aria-label="${esc(k.label)}"></div>
       <p class="knob-note" data-note>${esc(k.note(v))}</p>`;
   }
   function goView() {
     const c = state.draft, d = dataset(c.dataset), n = c.algorithms.length, engine = state.engine, gone = c.algorithms.map(algorithm).find(a => a && unavailable(a));
-    const blocked = running() ? '실행 중인 비교가 끝나면 새로 시작할 수 있어요.' : engine.status === 'error' ? `엔진을 불러오지 못했어요 · ${engine.text}` : !n ? '② 모델을 하나 이상 골라 주세요.'
+    const blocked = running() ? '실행 중인 비교가 끝나면 새로 시작할 수 있어요.' : engine.status === 'error' ? `엔진을 불러오지 못했어요 · ${engine.text}` : !n ? '모델을 하나 이상 골라 주세요.'
       : !datasetReady(d) ? '데이터를 먼저 올려 주세요.' : gone ? `${gone.name} · ${unavailable(gone).text}` : '';
     const where = engine.kind === 'local' ? `이 컴퓨터(${engine.info?.device || 'cpu'})` : '브라우저', note = message || blocked;
     $('#l-go', el).innerHTML = `<p class="go-note ${note && !running() ? 'is-warn' : ''}">${esc(note || `모델 ${n}개 · 예상 ${duration(estimate(c))} · ${where}에서 실행`)}</p>
-      <button type="button" class="btn btn-primary btn-go" data-act="run" ${blocked ? 'disabled' : ''}>${running() ? '비교 중…' : '비교 시작'}</button>`;
+      <button type="button" class="btn btn-primary btn-go" data-act="run" ${blocked ? 'disabled' : ''}>${running() ? '비교 중…' : `비교 시작${ARROW}`}</button>`;
   }
   function summary() {
     const c = state.draft, p = planOf(c);
@@ -79,7 +87,7 @@ export function launcherPanel(el) {
       ${choice('baseLearner', '기본 모델', [['ridge', 'Ridge'], ['tree', 'Gradient Boosting']], '기본 알고리즘 안의 회귀 모델이에요. Gradient Boosting은 비선형 효과를 배우지만 학습이 약 25배 오래 걸려요.')}
       <label class="field"><span class="field-label">시드</span><input type="number" class="input" min="0" max="999999" step="1" value="${c.seed}" data-seed><small>같은 시드면 결과를 그대로 재현할 수 있어요.</small></label>`;
   }
-  function all() { data(); models(); rule(); goView(); summary(); if (!$('#l-adv', el).hidden) advanced(); }
+  function all() { status(); data(); models(); rule(); goView(); summary(); if (!$('#l-adv', el).hidden) advanced(); }
   all();
 
   function clampCycles() {
@@ -105,17 +113,18 @@ export function launcherPanel(el) {
   });
   el.addEventListener('change', e => {
     const t = e.target; message = '';
-    if (t.type === 'checkbox') { selectAlgorithm(t.value, t.checked); models(); goView(); }
+    if (t.type === 'checkbox') { selectAlgorithm(t.value, t.checked); models(); goView(); status(); }
     else if (t.matches('[data-seed]')) { const seed = Math.max(0, Math.min(999999, Math.round(Number(t.value) || 0))); t.value = seed; setDraft({seed}); summary(); }
   });
   el.addEventListener('input', e => {
     const t = e.target.closest('[data-range]'); if (!t) return;
-    t.style.setProperty('--v', `${(t.value - t.min) / (t.max - t.min) * 100}%`);
+    const at = `${(t.value - t.min) / (t.max - t.min) * 100}%`;
+    (t.closest('#l-knob') || t).style.setProperty('--v', at);
     setDraft({[t.dataset.range]: Number(t.value) / 100});
     const k = knob(state.draft), v = Number(t.value);
     if (t.closest('#l-knob')) { $('[data-out]', el).textContent = `${k.sign || ''}${v}%`; $('[data-note]', el).textContent = k.note(v); }
     else { const label = t.closest('.field')?.querySelector('.field-label b'), p = planOf(state.draft); if (label) label.textContent = t.dataset.range === 'explore' ? `${share(state.draft.explore)} · ${int(p.exploreN)}명` : `${share(state.draft.target)} · ${int(p.selectedN)}명`; }
-    goView(); summary();
+    goView(); summary(); status();
   });
   const off = subscribe(kind => {
     if (kind === 'algorithms' || kind === 'datasets' || kind === 'engine') all();

@@ -1,9 +1,9 @@
 // The right panel: the leaderboard, the Exploit group's covariates, per-cycle metrics and the row-level log.
-import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.25.1';
-import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.25.1';
-import {lineChart, interpolate, responsive, interval} from '../charts.js?v=0.25.1';
-import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from '../summary.js?v=0.25.1';
-import {downloadReport, printReport, copySummary} from '../report.js?v=0.25.1';
+import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.26.0';
+import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.26.0';
+import {lineChart, interpolate, responsive, interval, forestPlot} from '../charts.js?v=0.26.0';
+import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictPanel} from '../summary.js?v=0.26.0';
+import {downloadReport, printReport, copySummary} from '../report.js?v=0.26.0';
 
 const USE = {train: '학습', validation: '검증', test: '오프라인 평가'};
 const upliftK = run => (isBudget(run) ? run.plan?.budget ?? run.config?.budget : run.plan?.target ?? run.config?.target);
@@ -92,8 +92,10 @@ export function resultsPanel(el, run) {
       box.innerHTML = run.cycles.length || running() ? '<p class="verdict-wait">사이클 1은 모델이 없어 모든 알고리즘이 같은 무작위 선정으로 시작해요. 순위는 사이클 2가 끝나면 계산돼요.</p>' : '';
       return;
     }
-    box.innerHTML = verdictHtml(V) + quality();
+    box.innerHTML = verdictPanel(V, W) + quality();
+    forest();
   }
+  function forest() { const svg = $('.forest', el); if (svg) forestPlot(svg); }
   function quality() {
     const d = dataset(datasetOf(run)), bad = (d?.stored?.profile?.checks || []).filter(c => c.level === 'bad' || c.level === 'warn');
     return bad.length ? `<div class="notice is-warn"><b>데이터 검사 경고</b><span>${bad.map(c => esc(c.text)).join(' ')} <a class="link" href="#/data/${encodeURIComponent(d.id)}">데이터셋 보기</a></span></div>` : '';
@@ -124,7 +126,7 @@ export function resultsPanel(el, run) {
   function treatments() {
     const box = $('#sec-arms', el), K = run.plan?.treatments || 1, labels = run.plan?.labels || [];
     if (K < 2) { box.innerHTML = ''; return; }
-    const tone = k => `color-mix(in srgb, var(--blue) ${Math.round(30 + 70 * k / (K - 1))}%, #fff)`;
+    const tone = k => `color-mix(in srgb, var(--blue) ${Math.round(30 + 70 * k / (K - 1))}%, var(--card))`;
     const rows = armsOf(run).map(a => ({a, s: sumOf(run, a.id)})).sort((x, y) => (x.s?.rank ?? 99) - (y.s?.rank ?? 99));
     const mix = share_ => (share_ ? `<span class="arm-bar">${share_.map((v, k) => (v >= .005 ? `<i style="width:${(v * 100).toFixed(1)}%;background:${tone(k)}" title="${esc(labels[k])} · ${(v * 100).toFixed(1)}%"></i>` : '')).join('')}</span>` : '<span class="muted">—</span>');
     box.innerHTML = `<section class="sec"><div class="sec-head"><div><h2>처치 분포</h2><p>각 알고리즘이 Exploit 그룹에 어떤 처치를 골랐는지예요. 사이클 2부터 합산해요.</p></div></div>
@@ -299,7 +301,7 @@ export function resultsPanel(el, run) {
   const closeMenu = () => { for (const name of ['history', 'share']) { const pop = $(`#${name}-pop`, el); if (pop && !pop.hidden) { pop.hidden = true; $(`[data-act="${name}"]`, el)?.setAttribute('aria-expanded', 'false'); } } };
   const onKey = e => { if (e.key === 'Escape') closeMenu(); };
   document.addEventListener('keydown', onKey); cleanups.push(() => document.removeEventListener('keydown', onKey));
-  cleanups.push(responsive($('#gain-chart', el), gainChart), responsive($('#curve-chart', el), curveChart));
+  cleanups.push(responsive($('#gain-chart', el), gainChart), responsive($('#curve-chart', el), curveChart), responsive($('#run-verdict', el), forest));
   cleanups.push(subscribe(kind => {
     if (kind === 'progress') { if (state.live === run) { live(); board(); } return; }
     if (kind === 'loading' || kind === 'engine') { if (state.live === run) live(); }

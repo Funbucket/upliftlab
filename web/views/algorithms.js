@@ -1,8 +1,8 @@
 // Algorithm library: read the built-in code, clone it, write your own, and run a quick check before a full simulation.
-import {$, esc, isNum, int, fix, pp, share, duration, download, go, BRIEF} from '../lib.js?v=0.25.1';
-import {state, subscribe, algorithm, addAlgorithm, updateAlgorithm, removeAlgorithm, quickCheck, templates, unavailable, selectAlgorithm} from '../store.js?v=0.25.1';
-import {createEditor} from '../vendor/editor.js?v=0.25.1';
-import {ENGINE_FILES} from '../engine-files.js?v=0.25.1';
+import {$, esc, isNum, int, fix, pp, share, duration, download, go, BRIEF} from '../lib.js?v=0.26.0';
+import {state, subscribe, algorithm, addAlgorithm, updateAlgorithm, removeAlgorithm, quickCheck, templates, unavailable, selectAlgorithm} from '../store.js?v=0.26.0';
+import {createEditor} from '../vendor/editor.js?v=0.26.0';
+import {ENGINE_FILES} from '../engine-files.js?v=0.26.0';
 
 const checks = new Map();  // algorithm id → last quick-check result, kept while the page is open
 const PEP723 = `# /// script
@@ -170,5 +170,5 @@ export function algorithmsView(root, {id, query}) {
 
 function sparkline(values, w = 560, h = 72) {
   const lo = Math.min(...values), hi = Math.max(...values), X = i => i / (values.length - 1) * w, Y = v => 4 + (1 - (v - lo) / (hi - lo || 1)) * (h - 8);
-  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="spark-svg" role="img" aria-label="loss 추이"><path d="${values.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join('')}" fill="none" stroke="#2a78d6" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="spark-axis"><span>${fix(values[0], 4)}</span><span>${fix(values.at(-1), 4)}</span></div>`;
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="spark-svg" role="img" aria-label="loss 추이"><path d="${values.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join('')}" fill="none" stroke="#4d8dff" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="spark-axis"><span>${fix(values[0], 4)}</span><span>${fix(values.at(-1), 4)}</span></div>`;
 }

@@ -1,29 +1,17 @@
+<a href="https://uplift-lab.vercel.app"><img src="docs/images/banner.png" alt="upliftlab. 같은 예산을 주고, 모델끼리 겨뤄요. Criteo 예시의 최종 순위표: Duality R-Learner 786, R-Learner 783, X-Learner 759, T-Learner 757, DML 699, Random 485. 사진 판정: 1~5위 차이는 95% CI 안이고 Random과의 차이는 유의해요."></a>
+
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-dark.svg">
-  <img src="docs/images/logo-light.svg" height="56" alt="upliftlab">
-</picture>
+**같은 예산에서 증분 성과를 가장 많이 내는 uplift 모델을, 운영 전에 찾아요.**
 
-### 같은 예산에서 증분 성과를 가장 많이 내는 uplift 모델을, 운영 전에 찾아요.
-
-내 실험 로그로 T-Learner부터 Duality R-Learner까지 같은 운영 루프에서 경쟁시켜요.
-
-[![Live demo](https://img.shields.io/badge/demo-uplift--lab.vercel.app-3182f6?style=flat-square)](https://uplift-lab.vercel.app)
-[![Built on EconML](https://img.shields.io/badge/built%20on-EconML-191f28?style=flat-square)](https://github.com/py-why/EconML)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-191f28?style=flat-square)](pyproject.toml)
-[![MIT License](https://img.shields.io/badge/license-MIT-191f28?style=flat-square)](LICENSE)
+[![Live demo](https://img.shields.io/badge/demo-uplift--lab.vercel.app-4d8dff?style=flat-square)](https://uplift-lab.vercel.app)
+[![Built on EconML](https://img.shields.io/badge/built%20on-EconML-11141a?style=flat-square)](https://github.com/py-why/EconML)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-11141a?style=flat-square)](pyproject.toml)
+[![MIT License](https://img.shields.io/badge/license-MIT-11141a?style=flat-square)](LICENSE)
 
 **[웹에서 바로 실행 →](https://uplift-lab.vercel.app)** &nbsp;·&nbsp; [로컬 설치](#빠른-시작) &nbsp;·&nbsp; [사용 안내](docs/guide.md)
 
-<br>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/result-dark.svg">
-  <img src="docs/images/result-light.svg" width="880" alt="Criteo 예시 결과. 같은 예산에서 늘린 사이트 방문은 Duality R-Learner 786명, R-Learner 783명, X-Learner 759명, T-Learner 757명, DML 699명, Random 485명이에요.">
-</picture>
-
-<sub>Criteo 광고 실험 199,837명 · 예산 40% · 8사이클 · EconML. 막대는 같은 예산으로 늘린 사이트 방문(명)이에요.<br>모든 uplift 모델이 Random을 앞섰고, 1~5위 사이 차이는 95% CI 안에 있어요.</sub>
+<sub>위 순위표는 Criteo 광고 실험 199,837명을 예산 40%, 8사이클로 돌린 실제 결과예요(EconML). 사이트에서는 사이클 1부터 8까지 다시 보여 줘요.</sub>
 
 </div>
 
@@ -33,33 +21,42 @@ Qini가 가장 높은 모델이 운영에서도 가장 많이 남길까요? 오�
 
 - **운영 루프를 그대로 돌려요.** 모델마다 대상을 고르고, 처치군과 대조군으로 효과를 재고, 재학습하는 과정을 사이클마다 반복해요.
 - **같은 조건에서만 비교해요.** 모든 모델이 같은 사용자, 같은 예산, 같은 무작위 Explore 그룹을 써요. 차이는 대상을 고른 방식에서만 생겨요.
-- **차이가 유의한지 보여 줘요.** 1위와의 차이를 95% CI로 보여 주고, 유의하지 않으면 결론에 그렇게 적어요.
+- **차이가 유의한지 보여 줘요.** 1위와의 차이를 95% CI로 그려서, 순위를 확정할 수 없는 박빙이면 그렇다고 적어요.
 - **데이터는 밖으로 나가지 않아요.** 웹은 브라우저 안에서, 로컬은 내 Python에서 돌아요. 공유 보고서에는 집계 값만 들어가요.
 
 ## 빠른 시작
 
 **웹 · 설치 없이.** [uplift-lab.vercel.app](https://uplift-lab.vercel.app)을 열고 `비교 시작`을 눌러요. Criteo 데이터, 기본 모델 6개, 예산 40%가 이미 골라져 있어요.
 
-<a href="https://uplift-lab.vercel.app"><img src="docs/images/upliftlab.png" alt="upliftlab 첫 화면. 데이터 고르기, 모델 고르기, 선정 방식과 예산 세 칸과 비교 시작 버튼"></a>
-
 **로컬 · EconML로.** 같은 화면이 내 Python에서 돌아가요. 큰 데이터, 이미 설치한 라이브러리, GPU를 그대로 써요.
+
+```bash
+uvx --from git+https://github.com/Funbucket/upliftlab upliftlab
+```
+
+<details>
+<summary>pip로 내 환경에 설치하기</summary>
 
 ```bash
 pip install git+https://github.com/Funbucket/upliftlab
 upliftlab                # http://127.0.0.1:4180 이 열려요
 ```
 
-<details>
-<summary>uv로 설치 없이 한 번 실행하기</summary>
-
-```bash
-uvx --from git+https://github.com/Funbucket/upliftlab upliftlab
-```
+uvx는 격리된 환경을 따로 만들어서 내 Python 환경을 건드리지 않아요. 내 알고리즘에서 이미 깔린 LightGBM이나 PyTorch를 쓰려면 pip로 그 환경에 설치해요.
 
 </details>
 
 > [!NOTE]
 > 브라우저에서는 EconML을 쓸 수 없어서, 웹은 같은 방법을 scikit-learn으로 쓴 경량판으로 돌려요. 결과 화면과 보고서에 어느 쪽으로 돌렸는지 표시해요.
+
+## 결과 읽는 법
+
+<a href="https://uplift-lab.vercel.app"><img src="docs/images/verdict.png" alt="결과 화면. 결승선은 박빙, 기준선과는 큰 차이. Random 대비 증분 방문 +62%, 1위와의 차이와 95% CI, P1~P5와 기준선 순위 카드"></a>
+
+- **제목**이 결론이에요. 2위와의 차이가 95% CI 안이면 `결승선은 박빙`이라고 쓰고, 기준선(Random)과의 차이가 확실한지도 함께 적어요.
+- **Random 대비**는 1위가 무작위로 고를 때보다 같은 예산으로 성과를 얼마나 더 냈는지예요.
+- **1위와의 차이 · 95% CI**에서 구간이 0을 지나는 모델은 회색, 확실히 낮은 모델은 파란색이에요. 박빙이면 `사진 판정` 표시가 붙어요.
+- 그 아래에 순위표, 1위가 고른 사용자의 특성, 사이클별 지표, Row-level 로그, Cost Curve가 이어져요.
 
 ## 데이터에서 보고서까지
 
@@ -92,7 +89,7 @@ class Model:
         ...
 ```
 
-웹에서는 `알고리즘 추가`에서 시작 틀을 골라 편집해요. 로컬에서는 화면 없이도 비교할 수 있어요.
+웹에서는 `알고리즘` 화면의 `알고리즘 추가`에서 시작 틀을 골라 편집해요. 로컬에서는 화면 없이도 비교할 수 있어요.
 
 ```bash
 upliftlab run --data my_experiment.csv --algorithm my_model.py
@@ -122,4 +119,4 @@ upliftlab run --data my_experiment.csv --algorithm my_model.py
 [개발 참여](CONTRIBUTING.md) · 빌드, 테스트, 폴더 구조<br>
 [변경 기록](CHANGELOG.md)
 
-<sub>[MIT](LICENSE). 함께 배포하는 Criteo 표본은 [CC BY-NC-SA 4.0](web/data/LICENSE-criteo.md)이라 비상업적으로만 쓸 수 있어요. Noto Sans KR 글꼴은 SIL Open Font License(`web/fonts/LICENSE`), 편집기 번들은 `web/vendor/LICENSES.txt`를 따라요.</sub>
+<sub>[MIT](LICENSE). 함께 배포하는 Criteo 표본은 [CC BY-NC-SA 4.0](web/data/LICENSE-criteo.md)이라 비상업적으로만 쓸 수 있어요. Pretendard, Archivo, Geist Mono 글꼴은 SIL Open Font License(`web/fonts/LICENSE`), 편집기 번들은 `web/vendor/LICENSES.txt`를 따라요.</sub>

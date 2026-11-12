@@ -1,10 +1,10 @@
 // The shareable report: one self-contained HTML file with the conclusion, the ranking, two charts, the conditions and how to
 // read them. It holds aggregates only, never uploaded rows. The same page prints to PDF, and a three-line summary goes to chat.
-import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.25.1';
-import {wordsFor, dataset, algorithm} from './store.js?v=0.25.1';
-import {CATALOG} from './catalog.js?v=0.25.1';
-import {lineChart} from './charts.js?v=0.25.1';
-import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from './summary.js?v=0.25.1';
+import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.26.0';
+import {wordsFor, dataset, algorithm} from './store.js?v=0.26.0';
+import {CATALOG} from './catalog.js?v=0.26.0';
+import {lineChart} from './charts.js?v=0.26.0';
+import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from './summary.js?v=0.26.0';
 
 const SITE = 'https://uplift-lab.vercel.app';
 const day = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };

@@ -1,9 +1,9 @@
 // Shell: header, router and the engine chip. Views live in ./views and read from ./store.
-import {$, esc, go} from './lib.js?v=0.25.1';
-import {state, subscribe, boot, running} from './store.js?v=0.25.1';
-import {workspaceView} from './views/workspace.js?v=0.25.1';
-import {algorithmsView} from './views/algorithms.js?v=0.25.1';
-import {dataView} from './views/data.js?v=0.25.1';
+import {$, esc, go} from './lib.js?v=0.26.0';
+import {state, subscribe, boot, running} from './store.js?v=0.26.0';
+import {workspaceView} from './views/workspace.js?v=0.26.0';
+import {algorithmsView} from './views/algorithms.js?v=0.26.0';
+import {dataView} from './views/data.js?v=0.26.0';
 
 const routes = [
   [/^\/?$/, workspaceView, () => ({})],
@@ -24,6 +24,8 @@ function route() {
   const el = document.createElement('div');  // a fresh element per mount, so a view's listeners leave with it
   app.replaceChildren(el);
   view = mount(el, {...params(p.match(re)), query: new URLSearchParams(q)});
+  const section = p.split('/')[1] === 'data' || p.split('/')[1] === 'algorithms' ? p.split('/')[1] : '';
+  document.querySelectorAll('[data-nav]').forEach(link => (link.dataset.nav === section ? link.setAttribute('aria-current', 'page') : link.removeAttribute('aria-current')));
   if (p !== path) window.scrollTo(0, 0);
   path = p;
 }

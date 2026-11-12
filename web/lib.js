@@ -13,8 +13,9 @@ export const share = v => (isNum(v) ? `${Math.round(v * 100)}%` : '—');
 export const duration = v => (!isNum(v) ? '—' : v < 1 ? '<1ms' : v < 1000 ? `${Math.round(v)}ms` : `${(v / 1000).toFixed(1)}초`);
 export const when = t => new Date(t).toLocaleString('ko-KR', {month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'});
 
-// Categorical slots in fixed order (validated for adjacent CVD and normal-vision separation on a light surface).
-export const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+// Categorical slots in fixed order, stepped for the dark surface (#0b0d11): OKLCH L 0.48–0.67, ≥ 3:1 contrast, worst adjacent
+// CVD ΔE 8.4 and normal-vision ΔE 19.3, checked with the dataviz palette validator.
+export const PALETTE = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'];
 export const MAX_ALGORITHMS = PALETTE.length;
 export const BASELINE = '#8b95a1';  // the random baseline is a reference, not a contender
 // Colors follow each algorithm's position in a run; the random baseline always reads as a neutral reference.

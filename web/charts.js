@@ -1,5 +1,5 @@
 // SVG line charts with one y-axis, a recessive grid, 2px lines and a crosshair tooltip that lists every series.
-import {esc, isNum} from './lib.js?v=0.25.1';
+import {esc, isNum, int, pp} from './lib.js?v=0.26.0';
 
 const M = {top: 14, right: 16, bottom: 30, left: 48};
 
@@ -90,4 +90,26 @@ export function interval(value, ci, [lo, hi]) {
   const P = v => ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * 100).toFixed(1);
   const tone = ci[0] > 0 ? 'pos' : ci[1] < 0 ? 'neg' : 'flat';
   return `<span class="ci ${tone}" aria-hidden="true"><i class="ci-zero" style="left:${P(0)}%"></i><i class="ci-range" style="left:${P(ci[0])}%;width:${P(ci[1]) - P(ci[0])}%"></i><i class="ci-point" style="left:${P(value)}%"></i></span>`;
+}
+
+// The gap to the leader with its 95% CI, one row per algorithm (data-gaps from verdictPanel). It is drawn at the element's real
+// width, so the labels keep their size on a phone. Rows whose interval holds 0 are grey (no sure gap); the others take the accent.
+export function forestPlot(svg) {
+  const rows = JSON.parse(svg.dataset.gaps || '[]');
+  if (!rows.length) return;
+  const W = Math.round(Math.max(280, svg.clientWidth || svg.parentNode.clientWidth)), narrow = W < 520;
+  const L = narrow ? 96 : 132, R = 18, top = 30, rh = narrow ? 42 : 46, H = top + rh * rows.length + 28;
+  let lo = Math.min(0, ...rows.map(r => r.lo)), hi = Math.max(0, ...rows.map(r => r.hi));
+  const pad = (hi - lo) * .05 || 1; lo -= pad; hi += pad;
+  const X = v => L + (v - lo) / (hi - lo) * (W - L - R), fmt = v => (svg.dataset.unit === 'pp' ? pp(v) : `${v > 0 ? '+' : v < 0 ? '−' : ''}${int(Math.abs(v))}`);
+  let out = ticks(lo, hi, narrow ? 3 : 5).filter(t => t !== 0 && t > lo && t < hi).map(t => `<line class="fp-grid" x1="${X(t)}" x2="${X(t)}" y1="${top - 8}" y2="${top + rh * rows.length}"/><text class="fp-tick" x="${X(t)}" y="${top + rh * rows.length + 20}" text-anchor="middle">${esc(fmt(t))}</text>`).join('');
+  out += `<line class="fp-zero" x1="${X(0)}" x2="${X(0)}" y1="${top - 8}" y2="${top + rh * rows.length}"/><text class="fp-tick" x="${X(0)}" y="${top + rh * rows.length + 20}" text-anchor="middle">0</text><text class="fp-lead" x="${X(0)}" y="${top - 14}" text-anchor="${X(0) > W - 60 ? 'end' : 'middle'}">1위 기준</text>`;
+  out += rows.map((r, i) => {
+    const y = top + rh * i + rh / 2, k = r.tied ? '' : ' is-firm', name = r.name.length > (narrow ? 11 : 17) ? r.name.slice(0, narrow ? 10 : 16) + '…' : r.name;
+    return `<g class="fp-row${k}"><text class="fp-name" x="0" y="${y + 5}">${esc(name)}</text><line class="fp-ci" x1="${X(r.lo)}" x2="${X(r.hi)}" y1="${y}" y2="${y}"/>
+      <line class="fp-cap" x1="${X(r.lo)}" x2="${X(r.lo)}" y1="${y - 7}" y2="${y + 7}"/><line class="fp-cap" x1="${X(r.hi)}" x2="${X(r.hi)}" y1="${y - 7}" y2="${y + 7}"/>
+      <circle class="fp-dot" cx="${X(r.diff)}" cy="${y}" r="6"/><text class="fp-val" x="${X(r.diff)}" y="${y - 13}" text-anchor="middle">${esc(fmt(r.diff))}</text></g>`;
+  }).join('');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = out;
 }
