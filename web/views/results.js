@@ -1,9 +1,9 @@
 // The right panel: the leaderboard, the Exploit group's covariates, per-cycle metrics and the row-level log.
-import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.26.1';
-import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.26.1';
-import {lineChart, interpolate, responsive, interval, forestPlot} from '../charts.js?v=0.26.1';
-import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictPanel} from '../summary.js?v=0.26.1';
-import {downloadReport, printReport, copySummary} from '../report.js?v=0.26.1';
+import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.26.2';
+import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.26.2';
+import {lineChart, interpolate, responsive, interval, forestPlot} from '../charts.js?v=0.26.2';
+import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictPanel} from '../summary.js?v=0.26.2';
+import {downloadReport, printReport, copySummary} from '../report.js?v=0.26.2';
 
 const USE = {train: '학습', validation: '검증', test: '오프라인 평가'};
 const upliftK = run => (isBudget(run) ? run.plan?.budget ?? run.config?.budget : run.plan?.target ?? run.config?.target);
@@ -114,12 +114,12 @@ export function resultsPanel(el, run) {
         <td class="c-name"><b>${esc(a.name)}</b>${a.user ? '<em class="tag tag-blue">내 코드</em>' : ''}${s?.failures ? `<em class="tag tag-red" title="${esc(s.lastError || '')}">실패 ${s.failures}회</em>` : ''}${s?.meets === false ? '<em class="tag tag-amber">효율 기준 미달</em>' : ''}${status(a.id)}<small>${esc(BRIEF[a.id] || algorithm(a.id)?.summary || '')}</small></td>
         <td class="c-bar"><span class="bar"><i class="${isLead ? 'is-lead' : ''}" style="width:${isNum(R) ? scale(R).toFixed(1) : 0}%"></i>${isNum(base) ? `<u style="left:${scale(base).toFixed(1)}%"></u>` : ''}</span><span class="bar-val">${value}</span></td>
         <td class="num ${!budget && isNum(s?.[F.gain]) && s[F.gain] > 0 ? 'strong' : ''}">${pct(s?.[F.gain])}</td><td class="num ${budget ? 'strong' : ''}">${int(s?.[F.incR])}</td><td class="num">${int(s?.[F.incC])}</td>${budget ? `<td class="num">${int(s?.selected)}</td>` : ''}
-        ${stats ? `${truth && basis === 'truth' ? `<td class="num">${pct(s?.gain)}</td>` : ''}<td class="c-ci">${interval(s?.gain, s?.ci, dom)}<small>${s && isNum(s.ci[0]) ? `${pct(s.ci[0])} ~ ${pct(s.ci[1])}` : ''}</small></td><td class="num">${vs(s)}</td><td class="num">${fix(s?.[F.aucc], 3)}</td><td class="num">${fix(s?.[F.qini], 3)}</td><td class="num">${lift(s?.[F.upliftAt])}</td><td class="num muted">${duration(s?.trainMs)}</td>` : ''}</tr>`;
+        ${stats ? `${truth && basis === 'truth' ? `<td class="num">${pct(s?.gain)}</td>` : ''}<td class="c-ci">${interval(s?.gain, s?.ci, dom)}<small>${s && isNum(s.ci[0]) ? `${pct(s.ci[0])} ~ ${pct(s.ci[1])}` : ''}</small></td><td class="num">${vs(s)}</td><td class="num">${fix(s?.[F.aucc], 3)}</td><td class="num">${fix(s?.[F.qini], 3)}${basis === 'observed' && isNum(s?.qiniCi?.[0]) ? `<small>${fix(s.qiniCi[0], 2)} ~ ${fix(s.qiniCi[1], 2)}</small>` : ''}</td><td class="num">${lift(s?.[F.upliftAt])}</td><td class="num muted">${duration(s?.trainMs)}</td>` : ''}</tr>`;
     };
     $('#sec-board', el).innerHTML = `<div class="sec-head"><div><h2>순위</h2><p>${isBudget(run) ? `사용 예산이 같으므로 ${esc(josa(W.incR, '으로', '로'))} 순위를 매겨요. ` : modeOf(run) === 'roi' ? `효율 기준을 지킨 알고리즘을 먼저 놓고, ${esc(josa(W.incR, '으로', '로'))} 순위를 매겨요. ` : budget ? `선정 인원이 달라서 ${esc(josa(W.incR, '으로', '로'))} 순위를 매겨요. 효율 개선을 함께 보세요. ` : ''}${basis === 'truth' ? '참값은 합성 데이터의 잠재 결과로 계산한 실제 효과예요.' : '관측은 처치군과 대조군의 차이로 추정한 값으로, 운영 환경에서 볼 수 있는 값이에요.'} 사이클 2부터 합산해요.${isNum(base) ? ` 세로선은 Explore benchmark예요. 무작위 선정의 비용 효율로, 비용 ${int(unit)}당 ${esc(W.incR)} ${fix(base * unit, 1)}${W.unit}이에요. 막대가 세로선보다 길면 무작위 선정보다 효율이 높아요.` : ''}</p></div>
       <div class="sec-tools">${truth ? `<div class="seg" role="radiogroup" aria-label="기준">${[['truth', '참값'], ['observed', '관측']].map(([k, t]) => `<button type="button" role="radio" aria-checked="${basis === k}" data-basis="${k}">${t}</button>`).join('')}</div>` : ''}<button type="button" class="btn btn-quiet btn-sm" data-act="stats" aria-pressed="${stats}">${stats ? '상세 지표 접기' : '상세 지표'}</button></div></div>
       <div class="table-wrap"><table class="table board ${budget ? 'is-budget' : ''}"><thead><tr><th class="c-rank">#</th><th>알고리즘</th><th>비용 효율<small>비용 ${int(unit)}당 ${esc(W.incR)}</small></th><th class="num">효율 개선<small>Explore 대비</small></th><th class="num">${esc(W.incR)}</th><th class="num">증분 비용</th>${budget ? '<th class="num">Exploit 인원<small>사이클 평균</small></th>' : ''}
-      ${stats ? `${truth && basis === 'truth' ? '<th class="num">효율 개선<small>관측</small></th>' : ''}<th class="c-ci">95% CI<small>관측</small></th><th class="num">1위와 차이<small>관측</small></th><th class="num">테스트 AUCC<small>${F.name}</small></th><th class="num">Qini<small>${F.name}</small></th><th class="num">Uplift@${share(k)}<small>${F.name}</small></th><th class="num">학습 시간<small>평균</small></th>` : ''}</tr></thead><tbody>${rows.map(row).join('')}</tbody></table></div>
+      ${stats ? `${truth && basis === 'truth' ? '<th class="num">효율 개선<small>관측</small></th>' : ''}<th class="c-ci">95% CI<small>관측</small></th><th class="num">1위와 차이<small>관측</small></th><th class="num">AUCC<small>오프라인 · ${F.name}</small></th><th class="num">Qini<small>${basis === 'observed' ? '오프라인 · 95% CI' : `오프라인 · ${F.name}`}</small></th><th class="num">Uplift@${share(k)}<small>오프라인 · ${F.name}</small></th><th class="num">학습 시간<small>평균</small></th>` : ''}</tr></thead><tbody>${rows.map(row).join('')}</tbody></table></div>
       <p class="sec-foot">행을 선택하면 아래 분석이 해당 알고리즘 기준으로 바뀌어요.</p>`;
   }
   // Which treatment each algorithm chose for its Exploit group, when the dataset has several.
@@ -158,7 +158,7 @@ export function resultsPanel(el, run) {
     const spent = isBudget(run) && isNum(c.budget) && me ? ` 이번 사이클 예산은 예상 증분 비용 기준 ${int(c.budget)}이고, ${armName} ${int(me.planned)}을 배정해 ${int(me.selected)}명을 선정했어요.`
       : modeOf(run) === 'roi' && isNum(c.efficiencyTarget) && me ? ` 이번 사이클 효율 기준은 예상 비용 ${int(unit)}당 ${esc(W.incR)} ${fix(c.efficiencyTarget * unit, 1)}${W.unit}이고, ${armName} ${int(me.selected)}명을 선정했어요.`
         : modeOf(run) === 'validation' && isNum(me?.cutoff) ? ` ${armName} validation 행에서 고른 비율 ${share(me.cutoff)}로 ${int(me.selected)}명을 선정했어요.` : '';
-    const after = w ? ` 사이클이 끝난 뒤 ${last} Explore ${int(w.rows)}행(train ${int(w.split.train)} · validation ${int(w.split.validation)} · test ${int(w.split.test)})으로 재학습했어요.` : '';
+    const after = w ? ` 사이클이 끝난 뒤 ${last} Explore ${int(w.rows)}행 중 train ${int(w.split.train)}행과 validation ${int(w.split.validation)}행으로 재학습했어요.` : '';
     const n = c.n, chosen = me?.selected ?? x?.n ?? 0, rest = n - ex.n - chosen, skipped = Math.max(0, chosen - (x?.n ?? 0));  // skipped: logged under a treatment other than the one chosen
     const row = (label, cell, rowClass, gain, key = '') => `<tr class="${rowClass}" ${key ? `data-arm="${esc(key)}"` : ''}><td class="c-name"><b>${label}</b></td><td class="num">${int(cell.n)}</td><td class="num">${rate(cell.retainT)}</td><td class="num">${rate(cell.retainC)}</td><td class="num strong">${lift(cell.ateR)}</td><td class="num">${fix(cell.ateC, 2)}</td><td class="num strong">${isNum(cell.R) ? fix(cell.R * unit, 1) : '—'}</td><td class="num">${gain}</td></tr>`;
     box.innerHTML = `${head}<p class="sec-lead">${told}${spent}${after}</p>
@@ -215,17 +215,22 @@ export function resultsPanel(el, run) {
       baseline: {y: 0, label: 'Explore benchmark'}, hover: {xs: run.cycles.map(c => c.cycle), title: v => `사이클 ${v}${v === 1 ? ' · 무작위 선정' : ''}`, value: (s, x) => s.points.find(p => p[0] === x)?.[1]}});
   }
   function curveChart() {
-    const box = $('#curve-chart', el), arms = armsOf(run), last = [...run.cycles].reverse().find(c => c.arms.some(r => r.train?.curve)), qini = curveKind === 'qini';
+    const box = $('#curve-chart', el), arms = armsOf(run), qini = curveKind === 'qini', pooled = (run.summary?.arms || []).filter(s => s.curve);
     $('#curve-title', el).textContent = qini ? 'Qini Curve' : 'Cost Curve';
     $$('[data-curve]', el).forEach(b => b.setAttribute('aria-checked', String(b.dataset.curve === curveKind)));
     legend('#curve-legend', '<span class="ref"><i class="dash"></i>무작위 순서</span>');
-    if (!last) { box.innerHTML = '<p class="chart-empty">첫 학습이 끝나면 표시돼요.</p>'; $('#curve-note', el).textContent = qini ? '점수 순으로 처치 범위를 넓힐 때의 처치 대상 비율(x)과 증분 성과(y)예요.' : '점수 순으로 처치 범위를 넓힐 때의 증분 비용(x)과 증분 성과(y)예요.'; return; }
-    const truth = basis === 'truth' && last.arms.some(r => r.train?.truthCurve), test = last.arms.find(r => r.train?.n)?.train.n;
+    if (!pooled.length) {
+      box.innerHTML = `<p class="chart-empty">${run.cycles.length > 1 && !running() ? '이 결과에는 곡선이 없어요. 다시 실행하면 생성돼요.' : '사이클 2가 끝나면 표시돼요.'}</p>`;
+      $('#curve-note', el).textContent = qini ? '점수 순으로 처치 범위를 넓힐 때의 처치 대상 비율(x)과 증분 성과(y)예요.' : '점수 순으로 처치 범위를 넓힐 때의 증분 비용(x)과 증분 성과(y)예요.';
+      return;
+    }
+    const truth = basis === 'truth' && pooled.some(s => s.truthCurve), rows = pooled[0].offlineN, served = Math.max(...pooled.map(s => s.cycles || 0));
+    const where = `사이클 2${served > 1 ? `~${served + 1}` : ''}에 배포한 모델을 그 사이클의 Explore 그룹에 적용해 합산했어요(${int(rows)}행). 모델이 학습에 쓰지 않은 무작위 그룹이에요.`;
     $('#curve-note', el).textContent = qini
-      ? `사이클 ${last.cycle}에 학습한 모델을 test ${int(test)}행에 적용해, 점수 순으로 처치 범위를 넓힐 때의 처치 대상 비율(x)과 증분 성과(y)를 그렸어요. y축은 전체 처치 시 증분 성과로 정규화했어요. 대각선은 무작위 순서이고, 왼쪽 위로 휠수록 Qini가 커요. 비용은 반영하지 않아요.`
-      : `사이클 ${last.cycle}에 학습한 모델을 test ${int(test)}행에 적용해, 점수 순으로 처치 범위를 넓힐 때의 증분 비용(x)과 증분 성과(y)를 그렸어요. 양 축은 최댓값으로 정규화했어요. 대각선은 무작위 순서이고, 왼쪽 위로 휠수록 AUCC가 커요.`;
+      ? `${where} 점수 순으로 처치 범위를 넓힐 때의 처치 대상 비율(x)과 증분 성과(y)이고, y축은 전체 처치 시 증분 성과로 정규화했어요. 대각선은 무작위 순서이고, 왼쪽 위로 휠수록 Qini가 커요. 비용은 반영하지 않아요.`
+      : `${where} 점수 순으로 처치 범위를 넓힐 때의 증분 비용(x)과 증분 성과(y)이고, 양 축은 최댓값으로 정규화했어요. 대각선은 무작위 순서이고, 왼쪽 위로 휠수록 AUCC가 커요.`;
     const series = arms.map(a => {
-      const curve = last.arms.find(r => r.arm === a.id)?.train?.[truth ? 'truthCurve' : 'curve'];
+      const curve = sumOf(run, a.id)?.[truth ? 'truthCurve' : 'curve'];
       if (!curve) return {id: a.id, name: a.name, color: a.color, points: []};
       const end = curve.at(-1), cx = end.cost || Math.max(...curve.map(p => Math.abs(p.cost))) || 1, cy = end.value || Math.max(...curve.map(p => Math.abs(p.value))) || 1;
       return {id: a.id, name: a.name, color: a.color, points: curve.map(p => [qini ? p.f : p.cost / cx, p.value / cy])};
@@ -241,9 +246,10 @@ export function resultsPanel(el, run) {
       <div><dt>참값 · 관측</dt><dd>합성 데이터는 사용자별 잠재 결과를 알아서 τʳ, τᶜ의 참값을 계산할 수 있어요. 관측은 처치군과 대조군의 차이로 추정한 값이고 표본 오차가 있어요.</dd></div>
       <div><dt>95% CI · 1위와 차이</dt><dd>처치군과 대조군을 각각 부트스트랩(200회)해 구해요. 1위와 차이의 95% CI가 0을 포함하면 ‘유의차 없음’으로 표시해요.</dd></div>
       <div><dt>${esc(W.incR)} · 증분 비용</dt><dd>Exploit 인원 × ATEʳ, Exploit 인원 × ATEᶜ. Exploit 그룹 전체를 처치했을 때의 합계예요.</dd></div>
-      <div><dt>AUCC</dt><dd>학습에 쓰지 않은 test 행에서 구한 Cost Curve 아래 면적이에요. 무작위 순서가 약 0.5이고, 표본이 작으면 변동이 커요.</dd></div>
-      <div><dt>Qini</dt><dd>Qini Curve(처치 대상 비율에 따른 증분 성과)와 무작위 순서 대각선 사이의 넓이를, 전체 처치 시 증분 성과로 나눈 값이에요. 무작위 순서가 약 0이에요. 비용을 반영하지 않으므로 AUCC와 순위가 다를 수 있어요.</dd></div>
-      <div><dt>Uplift@k</dt><dd>test 행 중 점수 상위 k%의 ATEʳ이에요. k는 Exploit 비율 q(예산을 쓰는 선정 방식이면 예산 비율)예요. 비용을 반영하지 않아요.</dd></div>
+      <div><dt>오프라인 평가</dt><dd>AUCC, Qini, Uplift@k는 사이클마다 배포한 모델을 그 사이클의 Explore 그룹에 적용해 구하고, 사이클 2부터 곡선을 합산해요. Explore 그룹은 무작위로 처치했고 모델이 학습에 쓰지 않은 행이라 holdout이 돼요. 사이클별 값을 평균하지 않는 이유는, 한 사이클의 전체 처치 시 증분 성과가 0에 가까우면 Qini가 크게 튀기 때문이에요.</dd></div>
+      <div><dt>AUCC</dt><dd>Cost Curve 아래 면적이에요. 무작위 순서가 약 0.5예요.</dd></div>
+      <div><dt>Qini</dt><dd>Qini Curve(처치 대상 비율에 따른 증분 성과)와 무작위 순서 대각선 사이의 넓이를, 전체 처치 시 증분 성과로 나눈 값이에요. 무작위 순서가 약 0이에요. 95% CI는 Explore 행을 부트스트랩(200회)해 구하고, 0을 포함하면 무작위 순서와 구분되지 않아요. 비용을 반영하지 않으므로 AUCC와 순위가 다를 수 있어요.</dd></div>
+      <div><dt>Uplift@k</dt><dd>사이클마다 점수 상위 k%의 Explore 행을 모아 구한 ATEʳ이에요. k는 Exploit 비율 q(예산을 쓰는 선정 방식이면 예산 비율)예요. 비용을 반영하지 않아요.</dd></div>
       ${Object.values(SELECTION).map(m => `<div><dt>선정 방식 · ${m.name}</dt><dd>${m.rule} 공개 사례: ${m.who.map(w => `<a class="link" href="${w[1]}" target="_blank" rel="noopener">${w[0]}</a>`).join(', ')}</dd></div>`).join('')}
       <div><dt>예산 · 예상 증분 비용</dt><dd>예산은 예산 비율 × 후보 전원의 예상 증분 비용이에요. 예상 증분 비용과 효율 제약의 예상 효과는 Explore train 행으로 학습한 Ridge 모델로 구하고, 모든 알고리즘이 같은 모델을 써요.</dd></div>
       <div><dt>score_is_effect</dt><dd>Knapsack과 효율 제약은 점수를 기대 효과로 읽어 비용과 견줘요. 점수가 효과가 아닌 Random과 Duality R-Learner는 점수 순서를 그대로 쓰고, 내 코드도 Model에 score_is_effect = False를 두면 같아요.</dd></div>

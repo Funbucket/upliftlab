@@ -173,13 +173,8 @@ def run_cycle():
 
 
 def record(plan, cycles):
-    """The saved form of a run: per-cycle results, the final summary, and cost curves only for the last cycle."""
-    rows = []
-    for i, c in enumerate(cycles):
-        c = {k: v for k, v in c.items() if k != 'summary'}
-        if i < len(cycles) - 1:
-            c['arms'] = [{**a, 'train': {k: v for k, v in (a.get('train') or {}).items() if k not in ('curve', 'truthCurve')}} for a in c['arms']]
-        rows.append(c)
+    """The saved form of a run: per-cycle results and the final summary, which holds the pooled offline curves."""
+    rows = [{k: v for k, v in c.items() if k != 'summary'} for c in cycles]
     return {'plan': plan, 'cycles': rows, 'summary': cycles[-1]['summary'] if cycles else None}
 
 

@@ -1,8 +1,8 @@
 // App state: the engine, algorithms, datasets and runs. Views subscribe and re-render when something changes.
-import {ENGINE_FILES} from './engine-files.js?v=0.26.1';
-import {CATALOG, EXAMPLE} from './catalog.js?v=0.26.1';
-import {createRuntime} from './runtime.js?v=0.26.1';
-import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.26.1';
+import {ENGINE_FILES} from './engine-files.js?v=0.26.2';
+import {CATALOG, EXAMPLE} from './catalog.js?v=0.26.2';
+import {createRuntime} from './runtime.js?v=0.26.2';
+import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.26.2';
 
 const USER_KEY = 'upliftlab.algorithms.v15', RUN_KEY = 'upliftlab.runs.v16', DRAFT_KEY = 'upliftlab.draft.v22', MAX_RUNS = 12, KEEP_TRACES = 3;
 const SETTINGS = {mode: 'quantile', budget: .4, efficiency: .2, baseLearner: 'ridge'};  // results made before these settings existed used these values
@@ -239,8 +239,7 @@ export async function startRun(config) {
     while (run.cycles.length < run.plan.cycles && !run.stop) {
       if (run.status === 'paused') { await new Promise(resolve => { run.resume = resolve; }); continue; }
       const out = await call('run_cycle');
-      run.summary = out.summary; delete out.summary;
-      for (const c of run.cycles) for (const a of c.arms) if (a.train) { delete a.train.curve; delete a.train.truthCurve; }
+      run.summary = out.summary; delete out.summary;  // the summary holds the pooled offline curves, so each cycle drops its own
       librariesLoaded = true;
       run.cycles.push(out); run.current = null; run.progress = {}; emit('run');
     }

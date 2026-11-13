@@ -15,7 +15,7 @@ if importlib.util.find_spec('sklearn') is None:
 from upliftlab import bridge, contract, datasets  # noqa: E402
 from upliftlab.arena import Run, knapsack, select, best_cutoff  # noqa: E402
 from upliftlab.arena import cost_estimator  # noqa: E402
-from upliftlab.metrics import aucc, cost_curve, qini, uplift_at  # noqa: E402
+from upliftlab.metrics import aucc, cost_curve, pooled, qini, qini_draws, qini_of_draws, uplift_at  # noqa: E402
 from upliftlab.scenario import ReplayScenario, SyntheticScenario  # noqa: E402
 
 BUILTINS = {a['id']: {'id': a['id'], 'name': a['name'], 'code': a['code']} for a in bridge.builtins()}
@@ -79,8 +79,40 @@ def test_head_to_head_ranks_cost_aware_models_first_and_is_reproducible():
         lo, hi = a['ci']
         assert lo <= a['gain'] <= hi
     assert s['random_baseline']['vsLeader']['tied'] is False and s['duality_r_learner']['vsLeader'] is None
-    last = result['cycles'][-1]['arms'][0]['train']
-    assert len(last['curve']) == 21 and 'curve' not in result['cycles'][0]['arms'][0]['train']
+    assert len(s['duality_r_learner']['curve']) == 21 and len(s['duality_r_learner']['truthCurve']) == 21
+    assert all('curve' not in a.get('train', {}) for c in result['cycles'] for a in c['arms']), 'the curves are pooled in the summary'
+
+
+def test_offline_metrics_pool_each_served_model_on_its_own_explore_group():
+    algorithms = pick('duality_r_learner', 'r_learner', 'random_baseline')
+    result = call('run_all', dataset='synthetic/base', algorithms=algorithms, cycles=5)
+    s, plan = {a['arm']: a for a in result['summary']['arms']}, result['plan']
+    assert s['duality_r_learner']['offlineN'] == plan['exploreN'] * 4, 'cycles 2 to 5, the same cycles as the online result'
+    lo, hi = s['random_baseline']['qiniCi']
+    assert lo < 0 < hi and abs(s['random_baseline']['qiniTruth']) < .05, 'random ranking has no Qini'
+    lo, hi = s['r_learner']['qiniCi']
+    assert 0 < lo <= s['r_learner']['qini'] <= hi, 'a model that ranks by effect is told apart from random'
+    assert s['duality_r_learner']['auccTruth'] > s['random_baseline']['auccTruth'] + .05, 'Duality ranks by cost too, so AUCC is where it shows'
+    curve = s['duality_r_learner']['curve']
+    assert s['duality_r_learner']['qini'] == pytest.approx(qini(curve)) and s['duality_r_learner']['aucc'] == pytest.approx(aucc(curve))
+    # a pooled total is far from zero even when one cycle's is not, which is what made the per-cycle average swing
+    totals = [-9., 16., 22.]
+    parts = [[{'f': f, 'cost': f * 10, 'value': f * v} for f in np.linspace(0, 1, 21)] for v in totals]
+    assert pooled(parts)[-1]['value'] == pytest.approx(sum(totals)) and qini(pooled(parts)) == pytest.approx(0, abs=1e-12)
+
+
+def test_bootstrap_qini_draws_center_on_the_curve():
+    rng = np.random.default_rng(1)
+    n = 20000
+    t = rng.random(n) < .5
+    tau = rng.random(n) * .2
+    y = (rng.random(n) < .1 + t * tau).astype(float)
+    draws = qini_draws(tau, t, y, np.random.default_rng(2), draws=200)
+    point = qini(cost_curve(tau, t, y, np.zeros(n)))
+    q = qini_of_draws(draws)
+    assert draws.shape == (200, 21) and np.all(draws[:, 0] == 0)
+    assert np.percentile(q, 2.5) < point < np.percentile(q, 97.5)
+    assert np.isnan(qini_of_draws(np.zeros((3, 21)))).all(), 'no total effect, no Qini'
 
 
 def test_builtins_follow_the_contract_in_the_quick_check():

@@ -1,10 +1,10 @@
 // The shareable report: one self-contained HTML file with the conclusion, the ranking, two charts, the conditions and how to
 // read them. It holds aggregates only, never uploaded rows. The same page prints to PDF, and a three-line summary goes to chat.
-import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.26.1';
-import {wordsFor, dataset, algorithm} from './store.js?v=0.26.1';
-import {CATALOG} from './catalog.js?v=0.26.1';
-import {lineChart} from './charts.js?v=0.26.1';
-import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from './summary.js?v=0.26.1';
+import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.26.2';
+import {wordsFor, dataset, algorithm} from './store.js?v=0.26.2';
+import {CATALOG} from './catalog.js?v=0.26.2';
+import {lineChart} from './charts.js?v=0.26.2';
+import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from './summary.js?v=0.26.2';
 
 const SITE = 'https://uplift-lab.vercel.app';
 const day = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -66,16 +66,16 @@ function charts(run) {
     out += `<section><h2>사이클별 효율 개선</h2><p class="lead-in">사이클마다 Exploit의 비용 효율이 무작위 선정(Explore)보다 몇 % 높은지예요. ${F.name} 기준이에요.</p>${legend(arms)}
       <figure>${svgOf({series, direct: false, x: {domain: [1, Math.max(2, total)], ticks: Array.from({length: total}, (_, i) => i + 1), format: v => String(v)}, y: {format: v => pct(v), label: '사이클별 효율 개선'}, baseline: {y: 0, label: '무작위 선정'}})}</figure></section>`;
   }
-  const last = [...run.cycles].reverse().find(c => c.arms.some(r => r.train?.curve));
-  if (last) {
-    const useTruth = truth && last.arms.some(r => r.train?.truthCurve), test = last.arms.find(r => r.train?.n)?.train.n;
+  const pooled = (run.summary?.arms || []).filter(s => s.curve);
+  if (pooled.length) {
+    const useTruth = truth && pooled.some(s => s.truthCurve), rows = pooled[0].offlineN;
     const series = arms.map(a => {
-      const curve = last.arms.find(r => r.arm === a.id)?.train?.[useTruth ? 'truthCurve' : 'curve'];
+      const curve = pooled.find(s => s.arm === a.id)?.[useTruth ? 'truthCurve' : 'curve'];
       if (!curve) return {id: a.id, name: a.name, color: a.color, points: []};
       const end = curve.at(-1), cx = end.cost || Math.max(...curve.map(p => Math.abs(p.cost))) || 1, cy = end.value || Math.max(...curve.map(p => Math.abs(p.value))) || 1;
       return {id: a.id, name: a.name, color: a.color, points: curve.map(p => [p.cost / cx, p.value / cy])};
     });
-    out += `<section><h2>Cost Curve</h2><p class="lead-in">사이클 ${last.cycle}에 학습한 모델을 학습에 쓰지 않은 test ${int(test)}행에 적용했어요. 점수가 높은 사람부터 처치 대상을 넓힐 때 쓴 증분 비용(가로)과 얻은 증분 성과(세로)예요. 점선은 무작위 순서이고, 왼쪽 위로 휠수록 같은 비용에서 성과가 커요(AUCC).</p>
+    out += `<section><h2>Cost Curve</h2><p class="lead-in">사이클마다 배포한 모델을 그 사이클의 Explore 그룹에 적용해 사이클 2부터 합산했어요(${int(rows)}행). 모델이 학습에 쓰지 않은 무작위 그룹이에요. 점수가 높은 사람부터 처치 대상을 넓힐 때 쓴 증분 비용(가로)과 얻은 증분 성과(세로)예요. 점선은 무작위 순서이고, 왼쪽 위로 휠수록 같은 비용에서 성과가 커요(AUCC).</p>
       ${legend(arms, '<span><i class="dash"></i>무작위 순서</span>')}<figure>${svgOf({series, direct: false, diagonal: true, x: {domain: [0, 1], ticks: [0, .25, .5, .75, 1], format: v => `${Math.round(v * 100)}%`}, y: {domain: [0, 1], format: v => `${Math.round(v * 100)}%`, label: 'Cost Curve'}})}</figure></section>`;
   }
   return out;

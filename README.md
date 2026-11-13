@@ -1,4 +1,4 @@
-<a href="https://uplift-lab.vercel.app"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/banner.png" alt="upliftlab. 같은 예산을 주고, 모델끼리 겨뤄요. Criteo 예시의 최종 순위표: Duality R-Learner 786, R-Learner 783, X-Learner 759, T-Learner 757, DML 699, Random 485. 사진 판정: 1~5위 차이는 95% CI 안이고 Random과의 차이는 유의해요."></a>
+<a href="https://uplift-lab.vercel.app"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/banner.png" alt="upliftlab. 같은 예산을 주고, 모델끼리 겨뤄요. Criteo 예시의 최종 순위표: Duality R-Learner 786, R-Learner 783, X-Learner 759, T-Learner 757, DML 699, Random 459. 사진 판정: 1~5위 차이는 95% CI 안이고 Random과의 차이는 유의해요."></a>
 
 <div align="center">
 
@@ -43,7 +43,7 @@ uv를 쓴다면 설치 없이 `uvx upliftlab` 한 줄이면 돼요. 처음 실�
 
 ## 결과 읽는 법
 
-<a href="https://uplift-lab.vercel.app"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/verdict.png" alt="결과 화면. 결승선은 박빙, 기준선과는 큰 차이. Random 대비 증분 방문 +62%, 1위와의 차이와 95% CI, P1~P5와 기준선 순위 카드"></a>
+<a href="https://uplift-lab.vercel.app"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/verdict.png" alt="결과 화면. 결승선은 박빙, 기준선과는 큰 차이. Random 대비 증분 방문 +71%, 1위와의 차이와 95% CI, P1~P5와 기준선 순위 카드"></a>
 
 - **제목**이 결론이에요. 2위와의 차이가 95% CI 안이면 `결승선은 박빙`이라고 쓰고, 기준선(Random)과의 차이가 확실한지도 함께 적어요.
 - **Random 대비**는 1위가 무작위로 고를 때보다 같은 예산으로 성과를 얼마나 더 냈는지예요.

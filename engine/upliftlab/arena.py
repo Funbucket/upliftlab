@@ -5,13 +5,17 @@ algorithm: it is the training data and the baseline. Each algorithm's deployed m
 selection rule turns that into its exploit group (see select()). That group is split into treatment and control again so
 the online effect can be measured. After the cycle every algorithm retrains on the recent explore window and its new model
 serves the next cycle. Cycle 1 has no model yet, so every algorithm starts from the same random selection.
+
+The offline metrics (AUCC, Qini, uplift@k) score each served model on the explore group of the cycle it served. That group
+was treated at random and the model trained on earlier cycles only, so it is a fresh holdout, and pooling cycles 2 onward
+gives the same models and cycles as the online result.
 """
 import time
 
 import numpy as np
 
 from . import contract
-from .metrics import aucc, cell, cost_curve, qini, uplift_at
+from .metrics import aucc, cell, cost_curve, pooled, qini, qini_draws, qini_of_draws, top_sums, uplift_at
 from .scenario import SyntheticScenario, seed_of
 
 DRAWS = 200
@@ -264,7 +268,7 @@ class Arm:
     def __init__(self, algorithm):
         self.algorithm = {'id': algorithm['id'], 'name': algorithm.get('name') or algorithm['id'], 'code': algorithm['code']}
         self.id, self.name = self.algorithm['id'], self.algorithm['name']
-        self.model, self.version, self.rows, self.served = None, 0, [], []
+        self.model, self.version, self.rows, self.served, self.offline = None, 0, [], [], []
 
 
 class Run:
@@ -344,7 +348,7 @@ class Run:
         for arm in self.arms:
             report({'cycle': c, 'arm': arm.id, 'phase': 'score'})
             row = {'cycle': c, 'arm': arm.id, 'version': arm.version, 'error': None}
-            score, eligible, chosen, matrix, effect, cutoff, started = v0, None, v0_arm, None, False, None, time.perf_counter()
+            score, eligible, chosen, matrix, effect, cutoff, on_explore, started = v0, None, v0_arm, None, False, None, None, time.perf_counter()
             if arm.model is not None:
                 try:
                     score, eligible, chosen, matrix = contract.decide(arm.model, pop.X[cand], K)
@@ -352,9 +356,12 @@ class Run:
                     if held_out is not None:
                         v_score, _, v_arm = contract.scores(arm.model, held_out['X'], K)
                         cutoff = best_cutoff(v_score, v_arm, held_out['t'], held_out['y'])
+                    on_explore = contract.scores(arm.model, pop.X[ex], K)
                 except Exception as error:  # a model that cannot score falls back to random for this cycle
-                    score, eligible, chosen, matrix, effect, cutoff, row['error'] = v0, None, v0_arm, None, False, None, f'predict · {contract.explain(error)}'
+                    score, eligible, chosen, matrix, effect, cutoff, on_explore, row['error'] = v0, None, v0_arm, None, False, None, None, f'predict · {contract.explain(error)}'
             row['scoringMs'] = (time.perf_counter() - started) * 1000
+            if on_explore is not None:
+                arm.offline.append(self.offline_cycle(arm.id, c, pop, ex, on_explore, t_ex, yr_ex, yc_ex))
             order_sel, take, chosen, planned = select(self.mode, score, eligible, chosen, matrix, effect, m, unit_cost, unit_gain, budget_total, efficiency_target, cutoff)
             sel, sel_arm = cand[order_sel[:take]], chosen[order_sel[:take]]
             picks[arm.id] = (order_sel, score, chosen)
@@ -389,7 +396,7 @@ class Run:
             report({'cycle': c, 'arm': arm.id, 'phase': 'train'})
             try:
                 model, out = fit(arm.algorithm, sets, self.seed, c, self.share, self.device, report, self.base_learner)
-                row['train'] = {**out, **evaluate(model, sets['test'], self.share), 'version': arm.version + 1}
+                row['train'] = {**out, 'version': arm.version + 1}
                 arm.model, arm.version = model, arm.version + 1
             except Exception as error:  # keep serving the previous model, as production would
                 row['train'] = {'error': contract.explain(error)}
@@ -398,6 +405,20 @@ class Run:
                 'pool': {'mean': pop.X[cand].mean(0).tolist(), 'std': pop.X[cand].std(0).tolist()}, 'trace': trace(pop, ex, cand, picks, self.seed, c),
                 'window': {'cycles': [b['cycle'] for b in self.log], 'rows': int(sum(len(b['t']) for b in self.log)), 'split': {k: int(len(v.t)) for k, v in sets.items()}},
                 'arms': rows, 'summary': self.summary()}
+
+    def offline_cycle(self, arm_id, cycle, pop, ex, scored, t, yr, yc):
+        """What the offline metrics need from one served cycle: the model's curves on that cycle's explore group, bootstrap
+        draws of its Qini curve, and the top-k sums for uplift@k. Kept per cycle so summary() can pool them."""
+        score, _, arm = scored
+        keep = (t == 0) | (t == arm)  # with several treatments, a row logged under another treatment says nothing about this one
+        score, t, yr, yc, rows, arm = score[keep], t[keep], yr[keep], yc[keep], ex[keep], arm[keep]
+        out = {'n': int(keep.sum()), 'curve': cost_curve(score, t, yr, yc), 'top': top_sums(score, self.share, t, yr), 'truthCurve': None, 'truthTop': None,
+               'draws': qini_draws(score, t, yr, np.random.default_rng(seed_of(self.seed, 'offline', arm_id, cycle)), DRAWS)}
+        if pop.tau_r is not None:
+            tau_r, tau_c = pop.truth(rows, arm)
+            top = np.argsort(-score, kind='stable')[:max(1, int(round(len(score) * self.share)))]
+            out.update(truthCurve=cost_curve(score, None, None, None, tau_r=tau_r, tau_c=tau_c), truthTop=(float(tau_r[top].sum()), len(top)))
+        return out
 
     def summary(self):
         """Pooled over the cycles each algorithm served with its own model (cycle 2 onward).
@@ -412,11 +433,22 @@ class Run:
             S, trained = arm.served, [r['train'] for r in arm.rows if r.get('train') and 'error' not in r['train']]
             s = {'arm': arm.id, 'name': arm.name, 'cycles': len(S), 'gain': None, 'ci': [None, None], 'incR': None, 'incC': None, 'R': None, 'baseR': None, 'selected': None,
                  'truthGain': None, 'truthIncR': None, 'truthIncC': None, 'truthR': None, 'baseTruthR': None, 'armShare': None,
-                 'aucc': None, 'auccTruth': None, 'qini': None, 'qiniTruth': None, 'upliftAt': None, 'upliftAtTruth': None, 'trainMs': None,
+                 'aucc': None, 'auccTruth': None, 'qini': None, 'qiniCi': [None, None], 'qiniTruth': None, 'upliftAt': None, 'upliftAtTruth': None,
+                 'curve': None, 'truthCurve': None, 'offlineN': None, 'trainMs': None,
                  'failures': sum(1 for r in arm.rows if r.get('error') or 'error' in r.get('train', {})),
                  'lastError': next((r.get('error') or r.get('train', {}).get('error') for r in reversed(arm.rows) if r.get('error') or 'error' in r.get('train', {})), None)}
             if trained:
-                s.update(trainMs=float(np.mean([t['ms'] for t in trained])), **{key: _mean(t.get(key) for t in trained) for key in ('aucc', 'auccTruth', 'qini', 'qiniTruth', 'upliftAt', 'upliftAtTruth')})
+                s['trainMs'] = float(np.mean([t['ms'] for t in trained]))
+            if arm.offline:  # offline metrics: the served cycles pooled, so a cycle whose total effect is near zero cannot dominate
+                O = arm.offline
+                curve = pooled([o['curve'] for o in O])
+                yT, nT, yC, nC = (sum(o['top'][i] for o in O) for i in range(4))
+                s.update(curve=curve, aucc=aucc(curve), qini=qini(curve), qiniCi=interval(qini_of_draws(sum(o['draws'] for o in O))),
+                         upliftAt=yT / nT - yC / nC if nT and nC else None, offlineN=sum(o['n'] for o in O))
+                if O[0]['truthCurve']:
+                    truth_curve = pooled([o['truthCurve'] for o in O])
+                    s.update(truthCurve=truth_curve, auccTruth=aucc(truth_curve), qiniTruth=qini(truth_curve),
+                             upliftAtTruth=sum(o['truthTop'][0] for o in O) / sum(o['truthTop'][1] for o in O))
             if S:
                 w = np.array([p['w'] for p in S], dtype=np.float64)
                 sel_r, sel_c = np.array([p['sel']['ateR'] for p in S]) @ w, np.array([p['sel']['ateC'] for p in S]) @ w
@@ -450,11 +482,6 @@ class Run:
                 ci = interval(spread[s['arm']] - spread[leader['arm']])
                 s['vsLeader'] = {'diff': s[field] - leader[field], 'ci': ci, 'tied': ci[0] is not None and ci[0] <= 0 <= ci[1]}
         return {'by': key, 'leader': leader['arm'], 'arms': out}
-
-
-def _mean(values):
-    values = [v for v in values if v is not None]
-    return float(np.mean(values)) if values else None
 
 
 def quick_check(algorithm, device='cpu', report=lambda message: None, seed=42):
