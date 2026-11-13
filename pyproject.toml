@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "upliftlab"
-version = "0.26.3"
+version = "0.26.4"
 description = "Find the uplift model that gives the most incremental outcome for the same budget, on your own experiment data"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -13,8 +13,10 @@ license-files = ["LICENSE", "web/fonts/LICENSE", "web/vendor/LICENSES.txt", "web
 keywords = ["uplift modeling", "causal inference", "CATE", "targeting", "marketing", "A/B testing"]
 classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent", "Intended Audience :: Science/Research", "Topic :: Scientific/Engineering"]
 # The engine needs only NumPy. The built-in algorithms use EconML (PyWhy) locally and fall back to their scikit-learn versions
-# (algorithms/lite) where EconML has no prebuilt wheel: Linux and Windows on ARM. Your own algorithms can use anything you install.
-dependencies = ["numpy>=1.21", "scikit-learn>=1.2", "econml>=0.16; platform_machine != 'aarch64' and platform_machine != 'ARM64'"]
+# (algorithms/lite) where EconML has no prebuilt wheel: Linux and Windows on ARM, and Intel Macs. Your own algorithms can use
+# anything you install.
+dependencies = ["numpy>=1.21", "scikit-learn>=1.2",
+                "econml>=0.16; platform_machine != 'aarch64' and platform_machine != 'ARM64' and (sys_platform != 'darwin' or platform_machine == 'arm64')"]
 
 [project.optional-dependencies]
 gpu = ["torch"]

@@ -1,11 +1,11 @@
 // The right panel: the leaderboard, the Exploit group's covariates, per-cycle metrics and the row-level log.
-import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.26.3';
-import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.26.3';
-import {lineChart, interpolate, responsive, interval, forestPlot} from '../charts.js?v=0.26.3';
-import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictPanel} from '../summary.js?v=0.26.3';
-import {downloadReport, printReport, copySummary} from '../report.js?v=0.26.3';
+import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.26.4';
+import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.26.4';
+import {lineChart, interpolate, responsive, interval, forestPlot} from '../charts.js?v=0.26.4';
+import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictPanel} from '../summary.js?v=0.26.4';
+import {downloadReport, printReport, copySummary, downloadCard} from '../report.js?v=0.26.4';
 
-const USE = {train: '학습', validation: '검증', test: '오프라인 평가'};
+const USE = {train: '학습', validation: '검증'};  // what an explore row is used for after its cycle; test rows are not used in a run
 const upliftK = run => (isBudget(run) ? run.plan?.budget ?? run.config?.budget : run.plan?.target ?? run.config?.target);
 // One segment of a cycle's composition bar. Its tooltip names the group, the arm and the size.
 function segment(cls, label, n, total) {
@@ -40,6 +40,7 @@ export function resultsPanel(el, run) {
     $('#run-bar', el).innerHTML = `<div class="run-bar-text"><b class="${run.example ? 'is-example' : ''}">${esc(label)}</b><span>${meta.map(esc).join(' · ')}</span>${differs ? '<span class="run-differs">현재 설정이 이 결과와 달라요. 다시 실행해야 결과에 반영돼요. <button type="button" class="btn-link" data-act="use">이 결과의 설정 불러오기</button></span>' : ''}</div>
       <div class="run-bar-actions">${run.summary && sumOf(run, run.summary.leader)?.cycles ? `<div class="menu"><button type="button" class="btn btn-quiet btn-sm" data-act="share" aria-haspopup="true" aria-expanded="false">보고서 공유</button><div class="menu-pop share-pop" id="share-pop" hidden>
         <button type="button" class="menu-item" data-act="report-html"><b>HTML 보고서 내려받기</b><span>파일 하나로 슬랙·메일에 첨부해요. 받은 사람은 브라우저로 열어요.</span></button>
+        <button type="button" class="menu-item" data-act="report-card"><b>결과 이미지 내려받기</b><span>링크드인·슬랙·슬라이드에 바로 쓰는 1200×630 PNG예요. 집계 값만 들어가요.</span></button>
         <button type="button" class="menu-item" data-act="report-pdf"><b>PDF로 저장</b><span>인쇄 창에서 대상을 ‘PDF로 저장’으로 골라요.</span></button>
         <button type="button" class="menu-item" data-act="report-copy"><b>요약 복사</b><span>결론과 핵심 숫자를 복사해 메신저에 붙여 넣어요.</span></button>
         <button type="button" class="menu-item" data-act="export"><b>결과 JSON 내려받기</b><span>upliftlab의 실행 기록에서 같은 화면으로 다시 열어요.</span></button>
@@ -183,16 +184,24 @@ export function resultsPanel(el, run) {
     const line = i => {
       const k = kind(i), measured = k !== 'rest', open = openRow === trace.ids[i];
       const label = {exploit: '<span class="chip">exploit</span>', rest: '<span class="chip chip-line">미선정</span>', explore: '<span class="chip chip-grey">explore</span>'}[k];
-      const use = k === 'explore' ? USE[trace.split[i]] : k === 'exploit' ? (off(i) ? '측정 제외' : '온라인 평가') : '미사용';
+      const use = k === 'explore' ? [c.cycle > 1 && '오프라인 평가', USE[trace.split[i]]].filter(Boolean).join(' · ') || '—'
+        : k === 'exploit' ? (off(i) ? '측정 제외' : `온라인 평가 · ${src.t[i] > 0 ? '처치군' : '대조군'}`) : '미사용';
       const main = `<tr data-row="${esc(trace.ids[i])}" class="${open ? 'is-open' : ''}" tabindex="0"><td class="c-id">${esc(trace.ids[i])}</td><td>${label}</td>${features.map((_, j) => `<td class="num muted">${fix(trace.X[i][j], 2)}</td>`).join('')}<td class="num">${isNum(scores[i]) ? scores[i] : '—'}</td><td class="num"><b>${ranks[i] ? int(ranks[i]) : '—'}</b></td>${multi ? `<td class="nowrap">${chosenOf(i, k)}</td>` : ''}
         <td class="num">${measured ? src.t[i] : '—'}</td><td class="num">${measured ? src.y[i] : '—'}</td><td class="num">${measured ? fix(src.cost[i], 2) : '—'}</td>${truth ? `<td class="num">${fix(src.tauR[i], 3)}</td><td class="num">${fix(src.tauC[i], 3)}</td>` : ''}<td class="muted">${use}</td></tr>`;
       if (!open) return main;
-      if (k === 'explore') return `${main}<tr class="row-more"><td colspan="${span}"><div>Explore 행은 모델 점수로 선정하지 않아요. 모든 알고리즘의 benchmark와 재학습에 똑같이 쓰여요.</div></td></tr>`;
+      if (k === 'explore') return `${main}<tr class="row-more"><td colspan="${span}"><div>Explore 행은 모델 점수로 선정하지 않아요. 모든 알고리즘의 benchmark, 이 사이클에 배포한 모델의 오프라인 평가, 다음 모델의 재학습에 똑같이 쓰여요.</div></td></tr>`;
       const others = armsOf(run).filter(a => trace.arms[a.id]).map(a => { const r = trace.arms[a.id].rank[i], limit = c.arms.find(x => x.arm === a.id)?.selected ?? 0; return `<span class="${r && r <= limit ? 'is-picked' : ''}"><b>${esc(a.name)}</b> ${r ? `${int(r)}위 · ${r <= limit ? 'exploit' : '미선정'}` : 'explore'}</span>`; }).join('');
       return `${main}<tr class="row-more"><td colspan="${span}"><div>알고리즘별 순위<p>${others}</p></div></td></tr>`;
     };
-    box.innerHTML = `${head}<div class="row-tools"><div class="seg" role="radiogroup" aria-label="strategy 필터">${[['exploit', 'Exploit'], ['rest', '미선정'], ['explore', 'Explore'], ['all', '전체']].map(([k, t]) => `<button type="button" role="radio" aria-checked="${filter === k}" data-filter="${k}">${t} ${counts[k]}</button>`).join('')}</div><span class="muted small">Exploit은 ${int(N)}위까지예요. 행을 선택하면 알고리즘별 순위를 볼 수 있어요.</span></div>
-      <div class="table-scroll"><table class="table rows"><thead><tr><th>user id</th><th>strategy</th>${features.map(f => `<th class="num" title="${esc(f)}">${esc(f)}</th>`).join('')}<th class="num">score</th><th class="num">rank</th>${multi ? '<th>선택 처치</th>' : ''}<th class="num">처치<small>T</small></th><th class="num">${esc(W.outcome)}<small>Yʳ</small></th><th class="num">비용<small>Yᶜ</small></th>${truth ? '<th class="num">증분 성과<small>참값 τʳ</small></th><th class="num">증분 비용<small>참값 τᶜ</small></th>' : ''}<th>용도</th></tr></thead><tbody>${shown.map(line).join('') || `<tr><td colspan="${span}" class="muted">이 조건의 행이 표본에 없어요.</td></tr>`}</tbody></table></div>`;
+    const cut = (i, at) => {  // a line where the sorted rows cross the Exploit cutoff, and where the unranked Explore rows begin
+      const k = kind(i), before = at > 0 ? kind(shown[at - 1]) : null;
+      if (k === 'rest' && before === 'exploit') return `<tr class="row-cut"><td colspan="${span}">${int(N)}위 · 여기까지 Exploit, 아래는 미선정</td></tr>`;
+      if (k === 'explore' && before && before !== 'explore') return `<tr class="row-cut is-explore"><td colspan="${span}">Explore · 무작위로 뽑아서 순위가 없어요</td></tr>`;
+      return '';
+    };
+    const n = c.n, exN = c.explore?.n ?? 0, real = n ? ` 표본이라 비율이 실제와 달라요. 이번 사이클 실제 비율은 Explore ${share(exN / n)} · Exploit ${share(N / n)} · 미선정 ${share((n - exN - N) / n)}예요.` : '';
+    box.innerHTML = `${head}<div class="row-tools"><div class="seg" role="radiogroup" aria-label="strategy 필터">${[['exploit', 'Exploit'], ['rest', '미선정'], ['explore', 'Explore'], ['all', '전체']].map(([k, t]) => `<button type="button" role="radio" aria-checked="${filter === k}" data-filter="${k}">${t} ${counts[k]}</button>`).join('')}</div><span class="muted small">Exploit은 ${int(N)}위까지예요.${real} 행을 선택하면 알고리즘별 순위를 볼 수 있어요.</span></div>
+      <div class="table-scroll"><table class="table rows"><thead><tr><th>user id</th><th>strategy</th>${features.map(f => `<th class="num" title="${esc(f)}">${esc(f)}</th>`).join('')}<th class="num">score</th><th class="num">rank</th>${multi ? '<th>선택 처치</th>' : ''}<th class="num">처치<small>T</small></th><th class="num">${esc(W.outcome)}<small>Yʳ</small></th><th class="num">비용<small>Yᶜ</small></th>${truth ? '<th class="num">증분 성과<small>참값 τʳ</small></th><th class="num">증분 비용<small>참값 τᶜ</small></th>' : ''}<th>용도</th></tr></thead><tbody>${shown.map((i, at) => cut(i, at) + line(i)).join('') || `<tr><td colspan="${span}" class="muted">이 조건의 행이 표본에 없어요.</td></tr>`}</tbody></table></div>`;
   }
   function rowsCsv() {
     const c = cycleNow(), trace = c.trace, ids = Object.keys(trace.arms), features = (run.plan?.features || []).slice(0, trace.X[0]?.length ?? 0), quote = v => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v);
@@ -287,6 +296,7 @@ export function resultsPanel(el, run) {
     else if (act === 'export') { closeMenu(); download(`upliftlab-${run.id}.json`, exportRun(run)); }
     else if (act === 'report-html') { closeMenu(); downloadReport(run); }
     else if (act === 'report-pdf') { closeMenu(); printReport(run); }
+    else if (act === 'report-card') { closeMenu(); downloadCard(run); }
     else if (act === 'report-copy') copySummary(run).then(() => { $('#share-msg', el).textContent = '요약을 복사했어요. 메신저에 붙여 넣으세요.'; }, () => { $('#share-msg', el).textContent = '이 브라우저에서는 복사할 수 없어요. HTML 보고서를 내려받아 주세요.'; });
     else if (act === 'stats') { stats = !stats; board(); }
     else if (act === 'use') useConfig(run.config);

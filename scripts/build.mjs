@@ -45,5 +45,6 @@ const bundledCSS=css.replace("@import url('./fonts/font.css');",inlineFonts);
 const output=html.replace(/<link rel="stylesheet" href="\.\/styles\.css(?:\?[^"]*)?">/,()=>`<style>${bundledCSS}</style>`).replace(/<script type="module" src="\.\/app\.js(?:\?[^"]*)?"><\/script>/,()=>`<script type="module">${code.replace(/<\/script/gi,'<\\/script')}</script>`);
 await mkdir(path.join(root,'dist'),{recursive:true});await writeFile(path.join(root,'dist/index.html'),output);
 await cp(path.join(root,'web/data'),path.join(root,'dist/data'),{recursive:true});  // the Criteo sample and its license, fetched by the page
+await cp(path.join(root,'docs/images/banner.png'),path.join(root,'dist/og.png'));  // the link preview image (og:image)
 // The pip package ships web/ itself (see pyproject.toml), so the local edition needs no build step.
 console.log('Built dist/index.html. The Python engine loads Pyodide from the CDN, or runs natively via upliftlab.');

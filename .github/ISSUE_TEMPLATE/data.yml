@@ -1,0 +1,33 @@
+name: 내 데이터로 비교할 수 있나요?
+description: 실험 로그가 upliftlab에 맞는지 묻고 싶을 때
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        upliftlab은 처치를 **무작위로 배정한** 실험 로그가 필요해요. 행은 1,000개 이상이고, 처치·결과·(선택) 비용·공변량 열이 있어야 해요.
+        실제 데이터는 올리지 말고, 열 이름과 값의 모양만 적어 주세요.
+  - type: textarea
+    id: design
+    attributes:
+      label: 실험은 어떻게 배정했나요?
+      description: 예) 쿠폰 대상자를 50%씩 무작위로 나눴어요. 처치가 여러 종류인가요?
+    validations:
+      required: true
+  - type: textarea
+    id: columns
+    attributes:
+      label: 열 이름과 값의 예
+      description: 처치, 결과, 비용, 공변량 열과 값의 범위. 공변량은 처치 전에 잰 값인지도 적어 주세요.
+      placeholder: |
+        treatment: 0/1
+        purchased: 0/1
+        coupon_cost: 0 또는 3000
+        visits_30d, days_since_signup, ...
+    validations:
+      required: true
+  - type: input
+    id: rows
+    attributes:
+      label: 행 수
+      placeholder: 약 50만 행

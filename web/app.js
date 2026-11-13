@@ -1,9 +1,9 @@
 // Shell: header, router and the engine chip. Views live in ./views and read from ./store.
-import {$, esc, go} from './lib.js?v=0.26.3';
-import {state, subscribe, boot, running} from './store.js?v=0.26.3';
-import {workspaceView} from './views/workspace.js?v=0.26.3';
-import {algorithmsView} from './views/algorithms.js?v=0.26.3';
-import {dataView} from './views/data.js?v=0.26.3';
+import {$, esc, go} from './lib.js?v=0.26.4';
+import {state, subscribe, boot, running} from './store.js?v=0.26.4';
+import {workspaceView} from './views/workspace.js?v=0.26.4';
+import {algorithmsView} from './views/algorithms.js?v=0.26.4';
+import {dataView} from './views/data.js?v=0.26.4';
 
 const routes = [
   [/^\/?$/, workspaceView, () => ({})],

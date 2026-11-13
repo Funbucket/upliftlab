@@ -18,7 +18,7 @@ README보다 자세한 내용이에요. 처음이라면 [uplift-lab.vercel.app](
 
 로컬에서는 `upliftlab/algorithms/`의 EconML 파일을, 웹에서는 `upliftlab/algorithms/lite/`의 scikit-learn 파일을 실행해요. 브라우저용 Python(Pyodide)에 EconML이 쓰는 numba가 없어서예요. 두 파일은 같은 방법을 구현하지만 cross-fitting 방식 같은 세부가 달라서 숫자가 조금 다를 수 있어요. 결과 화면과 보고서에 어느 쪽으로 돌렸는지 나와요. 알고리즘 화면은 EconML 코드를 먼저 보여 주고, `웹 경량판` 탭에서 브라우저용 코드를 볼 수 있어요.
 
-EconML은 Linux x86_64, macOS, Windows x86_64용 휠이 있어서 `pip install`로 함께 설치돼요. 휠이 없는 ARM Linux와 ARM Windows에서는 EconML 없이 설치되고 경량판이 돌아가요. 컴파일러가 있으면 Python 3.11 이상에서 `pip install econml`로 직접 빌드할 수 있어요.
+EconML은 Linux x86_64, Apple silicon Mac, Windows x86_64용 휠이 있어서 `pip install`로 함께 설치돼요. 휠이 없는 Intel Mac, ARM Linux, ARM Windows에서는 EconML 없이 설치되고 경량판이 돌아가요. 컴파일러가 있으면 Python 3.11 이상에서 `pip install econml`로 직접 빌드할 수 있어요.
 
 ## 데이터
 

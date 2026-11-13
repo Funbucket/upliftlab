@@ -10,23 +10,3 @@ build/
 .vercel/
 node_modules/
 dist/
-
-# Kept locally, not published: planning and UX notes, and the earlier self-hosted runner
-NOTES-v0.21.md
-ARCHITECTURE.md
-EXPERIMENT-SPEC.md
-IMPLEMENTATION-PLAN.md
-LOCAL-EDITION.md
-PRODUCT-PLAN.md
-PYTHON-EXECUTION-V4.md
-UI-UX-SPEC.md
-UX-*.md
-resource-budget.json
-backend/
-deploy/
-legacy/
-scripts/serve-python.py
-scripts/serve-public.py
-scripts/setup-python.py
-tests/test_python.py
-tests/test_public.py

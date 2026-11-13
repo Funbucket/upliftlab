@@ -1,10 +1,10 @@
 // The shareable report: one self-contained HTML file with the conclusion, the ranking, two charts, the conditions and how to
 // read them. It holds aggregates only, never uploaded rows. The same page prints to PDF, and a three-line summary goes to chat.
-import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.26.3';
-import {wordsFor, dataset, algorithm} from './store.js?v=0.26.3';
-import {CATALOG} from './catalog.js?v=0.26.3';
-import {lineChart} from './charts.js?v=0.26.3';
-import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml} from './summary.js?v=0.26.3';
+import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.26.4';
+import {wordsFor, dataset, algorithm} from './store.js?v=0.26.4';
+import {CATALOG} from './catalog.js?v=0.26.4';
+import {lineChart} from './charts.js?v=0.26.4';
+import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml, headlineOf} from './summary.js?v=0.26.4';
 
 const SITE = 'https://uplift-lab.vercel.app';
 const day = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -185,4 +185,67 @@ export async function copySummary(run) {
   area.value = text; area.style.cssText = 'position:fixed;opacity:0'; document.body.append(area); area.select();
   const ok = document.execCommand('copy'); area.remove();
   if (!ok) throw new Error('copy failed');
+}
+
+// A 1200×630 result card (PNG) for LinkedIn, Slack or a slide: the headline, the lift over Random and the standings, drawn
+// on a canvas with the page's own fonts. Like the report it holds aggregates only.
+export async function downloadCard(run) {
+  const W = wordsFor(datasetOf(run)), V = verdictOf(run, W);
+  if (!V) return;
+  const p = run.plan || {}, c = run.config || {}, H = headlineOf(V), L = V.lift, rows = (V.bars?.rows || []).slice(0, 6);
+  const meta = `${W.data} · ${selectionLabel(p.mode ? p : c)} · 알고리즘 ${armsOf(run).length}개 · ${p.cycles ?? c.cycles}사이클`;
+  const lead = L ? `${josa(V.name, '은', '는')} Random보다 ${josa(W.incR, '이', '가')} ${int(L.more)}${W.unit} ${L.more >= 0 ? '많아요' : '적어요'}.` : V.kpis[0]?.note || '';
+  const big = L ? `${L.ratio < 0 ? '−' : '+'}${Math.round(Math.abs(L.ratio) * 100)}%` : V.kpis[0]?.value || '';
+  const label = L ? `RANDOM 대비 ${W.incR}` : V.kpis[0]?.label || '';
+  const foot = !V.gaps.length ? '' : H.close ? `1~${H.ties + 1}위 차이는 95% CI 안이에요.${H.baseFirm ? ' Random과의 차이는 유의해요.' : ''}` : '2위와의 차이도 95% CI 밖이에요.';
+  const C = {bg: '#06070a', card: '#0b0d11', line: '#232830', ink: '#f3f5f8', ink2: '#d5dae1', sub: '#9aa3af', mute: '#6b7480', blue: '#4d8dff', blueStrong: '#9cc0ff', amber: '#f4b642', base: '#7d8794', bar: '#3d4550', rest: '#1d2229'};
+  const sans = '"Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif', num = '"Archivo Variable", "Pretendard Variable", sans-serif';
+  const text = [meta, H.h, H.em, lead, label, foot, ...rows.flatMap(r => [r.name, r.value]), '사진 판정 확정 upliftlab uplift-lab.vercel.app 같은 예산을 주고, 모델끼리 겨뤄요.'].join(' ');
+  await Promise.all([800, 600, 500].map(w => document.fonts.load(`${w} 40px ${sans}`, text)).concat(document.fonts.load(`900 100px ${num}`, `${big}0123456789,`))).catch(() => {});
+  const S = 2, WD = 1200, HT = 630, PAD = 64, canvas = document.createElement('canvas');
+  canvas.width = WD * S; canvas.height = HT * S;
+  const g = canvas.getContext('2d');
+  g.scale(S, S); g.textBaseline = 'alphabetic';
+  const font = (w, px, family = sans, stretch = 'normal') => { g.font = `${w} ${px}px ${family}`; if ('fontStretch' in g) g.fontStretch = stretch; };
+  const fit = (str, max) => { if (g.measureText(str).width <= max) return str; let t = str; while (t.length > 1 && g.measureText(`${t}…`).width > max) t = t.slice(0, -1); return `${t}…`; };
+  const round = (x, y, w, h, r, fill) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); g.fillStyle = fill; g.fill(); };
+  const say = (str, x, y, color, align = 'left') => { g.fillStyle = color; g.textAlign = align; g.fillText(str, x, y); };
+  g.fillStyle = C.bg; g.fillRect(0, 0, WD, HT);
+  // brand and run
+  round(PAD, 52, 32, 32, 8, '#3182f6');
+  g.save(); g.translate(PAD, 52); g.scale(32 / 48, 32 / 48); g.strokeStyle = '#fff'; g.lineCap = 'round'; g.lineWidth = 3.6;
+  g.beginPath(); g.moveTo(12, 36); g.bezierCurveTo(14.5, 20, 22.5, 13.6, 36, 12); g.stroke(); g.beginPath(); g.arc(36, 12, 3.2, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.restore();
+  font(800, 24); say('upliftlab', PAD + 44, 77, C.ink);
+  font(500, 15); say(fit(meta, 640), WD - PAD, 74, C.sub, 'right');
+  // headline
+  font(800, 52); say(fit(H.h, WD - PAD * 2), PAD, 172, C.ink);
+  say(fit(H.em, WD - PAD * 2), PAD, 236, C.blueStrong);
+  // the lift over Random, left
+  const top = 300;
+  font(600, 14); g.letterSpacing = '2px'; say(fit(label, 460), PAD, top, C.mute); g.letterSpacing = '0px';
+  font(900, 132, num, 'extra-condensed'); say(big, PAD - 4, top + 134, C.blue);
+  font(500, 19); say(fit(lead, 500), PAD, top + 182, C.ink2);
+  // standings, right
+  const X = 640, RW = WD - PAD - X, RH = 40, max = Math.max(...rows.map(r => r.width), 1);
+  rows.forEach((r, i) => {
+    const y = top - 12 + i * RH;
+    font(r.lead ? 700 : 500, 16); say(fit(`${r.base ? 'BASE' : `P${i + 1}`}  ${r.name}`, RW - 110), X, y + 14, r.lead ? C.ink : C.ink2);
+    font(800, 19, num); say(r.value, WD - PAD, y + 15, r.lead ? C.ink : C.sub, 'right');
+    round(X, y + 23, RW, 5, 2.5, C.rest);
+    if (r.width > 0) round(X, y + 23, Math.max(5, RW * r.width / max), 5, 2.5, r.lead ? C.blue : r.base ? C.base : C.bar);
+  });
+  // verdict and address
+  g.fillStyle = C.line; g.fillRect(PAD, HT - 92, WD - PAD * 2, 1);
+  let fx = PAD;
+  if (V.gaps.length) {
+    font(800, 14); const flag = H.close ? '사진 판정' : '확정', fw = g.measureText(flag).width + 22;
+    round(fx, HT - 66, fw, 28, 6, H.close ? C.amber : C.blue); say(flag, fx + 11, HT - 47, H.close ? '#1a1306' : '#fff'); fx += fw + 14;
+  }
+  font(500, 16); say(fit(foot, 640), fx, HT - 47, H.close ? '#f7cf82' : C.ink2);
+  font(600, 16); say('uplift-lab.vercel.app', WD - PAD, HT - 47, C.mute, 'right');
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  const url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = `upliftlab-결과-${run.createdAt ? day(run.createdAt) : day(Date.now())}.png`; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return canvas;
 }

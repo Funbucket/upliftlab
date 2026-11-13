@@ -1,7 +1,7 @@
 // Reading a run: the basis it ranks on, its algorithms, the leader's Exploit group, and the conclusion.
 // The results panel and the shared report both use these, so the app and the report say the same thing.
-import {esc, isNum, int, pct, pp, josa, colorsFor} from './lib.js?v=0.26.3';
-import {algorithm} from './store.js?v=0.26.3';
+import {esc, isNum, int, pct, pp, josa, colorsFor} from './lib.js?v=0.26.4';
+import {algorithm} from './store.js?v=0.26.4';
 
 export const FIELDS = {
   truth: {gain: 'truthGain', R: 'truthR', base: 'baseTruthR', incR: 'truthIncR', incC: 'truthIncC', aucc: 'auccTruth', qini: 'qiniTruth', upliftAt: 'upliftAtTruth', name: '참값'},
@@ -94,12 +94,19 @@ function barsOf(run, W, F, volume, ranked) {
 // The app's conclusion. The headline says whether the top is a photo finish (the gap to second place is inside its 95% CI); then
 // the leader's lift over Random, the gap to the leader of every other algorithm (a forest plot that results.js draws from
 // data-gaps), and the final standings. The shared report keeps verdictHtml and its own light CSS.
+// The headline as plain text: is it a photo finish, and how does the leader stand against the baseline. The result panel and
+// the image card both use it. `ties` counts the models whose gap to the leader is inside the 95% CI.
+export function headlineOf(V) {
+  const close = !!V.gaps[0]?.tied, firm = V.gaps.filter(g => !g.tied), ties = V.gaps.length - firm.length, baseFirm = firm.some(g => g.base && g.hi < 0);
+  if (!V.gaps.length) return {close, ties, baseFirm, h: `${josa(V.name, '이', '가')} 앞서요.`, em: V.line.replace(/<[^>]+>/g, '')};
+  if (close) return {close, ties, baseFirm, h: '결승선은 박빙,', em: baseFirm ? '기준선과는 큰 차이.' : '아직 순위를 확정하기 어려워요.'};
+  return {close, ties, baseFirm, h: `${josa(V.name, '이', '가')} 앞섰어요.`, em: '2위와도 확실한 차이예요.'};
+}
+
 export function verdictPanel(V, W) {
   const particle = (word, a, b) => josa(word, a, b).slice(String(word).length);
   const close = V.gaps[0]?.tied, firm = V.gaps.filter(g => !g.tied), lower = firm.filter(g => g.hi < 0), higher = firm.filter(g => g.lo > 0);
-  const [h, em] = !V.gaps.length ? [`${esc(josa(V.name, '이', '가'))} 앞서요.`, V.line]
-    : close ? ['결승선은 박빙,', lower.some(g => g.base) ? '기준선과는 큰 차이.' : '아직 순위를 확정하기 어려워요.']
-      : [`${esc(josa(V.name, '이', '가'))} 앞섰어요.`, '2위와도 확실한 차이예요.'];
+  const line = headlineOf(V), h = esc(line.h), em = V.gaps.length ? esc(line.em) : V.line;
   const L = V.lift, first = V.kpis[0];
   const big = L ? `<span class="caps">Random 대비 ${esc(W.incR)}</span><div class="vd-huge fig">${L.ratio < 0 ? '−' : '+'}${Math.round(Math.abs(L.ratio) * 100)}<small>%</small></div>
       <p><b>${esc(V.name)}</b>${particle(V.name, '은', '는')} Random보다 ${esc(josa(W.incR, '이', '가'))} <b>${int(L.more)}${W.unit}</b> ${L.more >= 0 ? '많아요' : '적어요'}.</p>

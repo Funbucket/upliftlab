@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 사용 안내
+    url: https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md
+    about: 선정 방식, 명령줄 옵션, 결과 읽는 법
+  - name: 웹에서 바로 실행
+    url: https://uplift-lab.vercel.app
+    about: 설치 없이 Criteo 예시로 비교해 보기

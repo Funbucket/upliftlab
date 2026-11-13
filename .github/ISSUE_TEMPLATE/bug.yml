@@ -1,0 +1,32 @@
+name: 버그 신고
+description: 실행이 멈추거나, 결과가 이상하거나, 설치가 안 될 때
+labels: [bug]
+body:
+  - type: dropdown
+    id: where
+    attributes:
+      label: 어디서 실행했나요?
+      options:
+        - 웹 (uplift-lab.vercel.app)
+        - 로컬 (pip install upliftlab / uvx upliftlab)
+        - 명령줄 (upliftlab run)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 버전과 환경
+      description: 로컬이면 `upliftlab` 첫 줄의 버전, OS, Python 버전을 적어 주세요.
+      placeholder: upliftlab 0.26.3 · macOS 15 (Apple silicon) · Python 3.12
+  - type: textarea
+    id: what
+    attributes:
+      label: 무슨 일이 있었나요?
+      description: 한 일, 기대한 결과, 실제 결과를 적어 주세요. 오류 메시지는 그대로 붙여 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: run
+    attributes:
+      label: 실행 설정 (선택)
+      description: 데이터, 모델, 선정 방식, 예산, 사이클 수. 결과 JSON을 붙여도 돼요. 실험 데이터 자체는 올리지 마세요.

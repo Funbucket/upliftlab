@@ -6,11 +6,12 @@
 
 [![Live demo](https://img.shields.io/badge/demo-uplift--lab.vercel.app-4d8dff?style=flat-square)](https://uplift-lab.vercel.app)
 [![PyPI](https://img.shields.io/pypi/v/upliftlab?style=flat-square&color=11141a&label=pypi)](https://pypi.org/project/upliftlab/)
+[![Tests](https://img.shields.io/github/actions/workflow/status/Funbucket/upliftlab/test.yml?branch=main&style=flat-square&label=tests)](https://github.com/Funbucket/upliftlab/actions/workflows/test.yml)
 [![Built on EconML](https://img.shields.io/badge/built%20on-EconML-11141a?style=flat-square)](https://github.com/py-why/EconML)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-11141a?style=flat-square)](https://github.com/Funbucket/upliftlab/blob/main/pyproject.toml)
 [![MIT License](https://img.shields.io/badge/license-MIT-11141a?style=flat-square)](https://github.com/Funbucket/upliftlab/blob/main/LICENSE)
 
-**[웹에서 바로 실행 →](https://uplift-lab.vercel.app)** &nbsp;·&nbsp; [로컬 설치](#빠른-시작) &nbsp;·&nbsp; [사용 안내](https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md)
+**[웹에서 바로 실행 →](https://uplift-lab.vercel.app)** &nbsp;·&nbsp; [로컬 설치](#빠른-시작) &nbsp;·&nbsp; [사용 안내](https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md) &nbsp;·&nbsp; [English](https://github.com/Funbucket/upliftlab/blob/main/README.en.md)
 
 <sub>위 순위표는 Criteo 광고 실험 199,837명을 예산 40%, 8사이클로 돌린 실제 결과예요(EconML). 사이트에서는 사이클 1부터 8까지 다시 보여 줘요.</sub>
 
@@ -19,6 +20,8 @@
 ## 왜 upliftlab인가요
 
 Qini가 가장 높은 모델이 운영에서도 가장 많이 남길까요? 오프라인 지표 하나로 모델을 고르면, 대상 선정과 재학습을 반복하면서 생기는 차이를 놓쳐요.
+
+비용이 사용자마다 다른 합성 쿠폰 시장에서 10개 시드 모두, Qini 1위 모델은 같은 예산에서 루프 1위보다 증분 성과가 평균 17% 적었어요. 비용을 보는 AUCC는 10번 모두 맞혔어요. Criteo에서는 시드마다 1위가 바뀌고, 확실한 차이는 Random과의 차이뿐이었어요. [실험과 재현 방법](https://github.com/Funbucket/upliftlab/blob/main/docs/offline-vs-loop.md)
 
 - **운영 루프를 그대로 돌려요.** 모델마다 대상을 고르고, 처치군과 대조군으로 효과를 재고, 재학습하는 과정을 사이클마다 반복해요.
 - **같은 조건에서만 비교해요.** 모든 모델이 같은 사용자, 같은 예산, 같은 무작위 Explore 그룹을 써요. 차이는 대상을 고른 방식에서만 생겨요.
@@ -54,7 +57,7 @@ uv를 쓴다면 설치 없이 `uvx upliftlab` 한 줄이면 돼요. 처음 실�
 
 | ① 데이터 넣기 | ② 비교 시작 | ③ 보고서 공유 |
 | :-- | :-- | :-- |
-| 실험 로그 CSV를 끌어다 놓으면 처치, 결과, 비용, 공변량 열을 알아서 골라요. | 모델, 선정 방식, 예산을 확인하고 `비교 시작`을 눌러요. 끝나면 결과로 바로 내려가요. | 1위 모델, Random 대비 증분 성과, 2위와의 차이를 HTML 보고서, PDF, 메신저 요약으로 보내요. |
+| 실험 로그 CSV를 끌어다 놓으면 처치, 결과, 비용, 공변량 열을 알아서 골라요. | 모델, 선정 방식, 예산을 확인하고 `비교 시작`을 눌러요. 끝나면 결과로 바로 내려가요. | 1위 모델, Random 대비 증분 성과, 2위와의 차이를 HTML 보고서, PDF, 결과 이미지(PNG), 메신저 요약으로 보내요. |
 
 ## 기본 모델
 
@@ -100,7 +103,7 @@ upliftlab run --data my_experiment.csv --algorithm my_model.py
 | 비용 (선택) | `coupon_cost` | 처치로 쓴 비용. 없으면 처치 1건당 1로 계산해요 |
 | 공변량 | `visit_freq`, … | 처치 **전에** 측정한 사용자 특성 |
 
-기본 데이터는 [Criteo](https://ailab.criteo.com/criteo-uplift-prediction-dataset/) 광고 실험이에요. 원본 1,398만 명에서 처치군과 대조군을 10만 명씩 뽑은 표본(199,837명, 결과는 사이트 방문)이 사이트와 패키지에 들어 있어요.
+기본 데이터는 [Criteo](https://ailab.criteo.com/criteo-uplift-prediction-dataset/) 광고 실험이에요. 원본 1,398만 명에서 처치군과 대조군을 10만 명씩 뽑은 표본(199,837명, 결과는 사이트 방문)이 사이트에 들어 있고, 로컬판은 처음 쓸 때 내려받아요.
 
 </details>
 

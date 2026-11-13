@@ -1,8 +1,8 @@
 // App state: the engine, algorithms, datasets and runs. Views subscribe and re-render when something changes.
-import {ENGINE_FILES} from './engine-files.js?v=0.26.3';
-import {CATALOG, EXAMPLE} from './catalog.js?v=0.26.3';
-import {createRuntime} from './runtime.js?v=0.26.3';
-import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.26.3';
+import {ENGINE_FILES} from './engine-files.js?v=0.26.4';
+import {CATALOG, EXAMPLE} from './catalog.js?v=0.26.4';
+import {createRuntime} from './runtime.js?v=0.26.4';
+import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.26.4';
 
 const USER_KEY = 'upliftlab.algorithms.v15', RUN_KEY = 'upliftlab.runs.v16', DRAFT_KEY = 'upliftlab.draft.v22', MAX_RUNS = 12, KEEP_TRACES = 3;
 const SETTINGS = {mode: 'quantile', budget: .4, efficiency: .2, baseLearner: 'ridge'};  // results made before these settings existed used these values
