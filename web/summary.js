@@ -1,7 +1,7 @@
 // Reading a run: the basis it ranks on, its algorithms, the leader's Exploit group, and the conclusion.
 // The results panel and the shared report both use these, so the app and the report say the same thing.
-import {esc, isNum, int, pct, pp, josa, colorsFor} from './lib.js?v=0.26.2';
-import {algorithm} from './store.js?v=0.26.2';
+import {esc, isNum, int, pct, pp, josa, colorsFor} from './lib.js?v=0.26.3';
+import {algorithm} from './store.js?v=0.26.3';
 
 export const FIELDS = {
   truth: {gain: 'truthGain', R: 'truthR', base: 'baseTruthR', incR: 'truthIncR', incC: 'truthIncC', aucc: 'auccTruth', qini: 'qiniTruth', upliftAt: 'upliftAtTruth', name: '참값'},

@@ -2,4 +2,4 @@
 
 The same package runs in the browser (Pyodide) and natively (`python -m upliftlab serve`).
 """
-__version__ = '0.26.2'
+__version__ = '0.26.3'

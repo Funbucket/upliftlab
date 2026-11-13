@@ -17,6 +17,7 @@ from upliftlab.arena import Run, knapsack, select, best_cutoff  # noqa: E402
 from upliftlab.arena import cost_estimator  # noqa: E402
 from upliftlab.metrics import aucc, cost_curve, pooled, qini, qini_draws, qini_of_draws, uplift_at  # noqa: E402
 from upliftlab.scenario import ReplayScenario, SyntheticScenario  # noqa: E402
+from upliftlab.__main__ import table  # noqa: E402
 
 BUILTINS = {a['id']: {'id': a['id'], 'name': a['name'], 'code': a['code']} for a in bridge.builtins()}
 TEMPLATES = {t['id']: t for t in bridge.templates()}
@@ -214,6 +215,27 @@ def test_ranking_does_not_depend_on_the_units_of_cost_or_outcome(algorithm):
         other_gain, other_ranks, other_lam = run(*units)
         assert other_ranks == ranks and other_lam == lam, units
         assert other_gain == pytest.approx(gain, abs=1e-9), units
+
+
+def test_the_command_line_table_ranks_and_measures_gaps_on_one_basis():
+    def arm(rank, name, truth, observed, gap=None):
+        return {'rank': rank, 'name': name, 'truthIncR': truth, 'incR': observed, 'ci': [None, None], 'trainMs': 5., 'aucc': .51, 'auccTruth': .61, 'qini': .02, 'qiniTruth': .04,
+                'vsLeader': None if gap is None else {'diff': gap, 'ci': [gap - 100, gap + 100], 'tied': False}}
+    synthetic = {'summary': {'by': 'truthIncR', 'arms': [arm(1, 'R-Learner', 2342., 2500.), arm(2, 'Random', 2172., 2139., gap=-361.)]}}
+    head, basis, first, second = table(synthetic)
+    assert head.split()[2:] == ['incremental', 'vs', '1st', 'vs', '1st,', '95%', 'CI', 'AUCC', 'Qini', 'fit', 'ms']
+    assert basis.split() == ['truth', 'truth', 'observed', 'truth', 'truth'], 'every column names its basis'
+    assert second.split()[2:6] == ['2,172', '-170', '-361', '[-461,'], 'the gap to first place is on the ranking basis, the observed one is its own column'
+    assert '0.610' in second and '0.040' in second, 'AUCC and Qini follow the ranking basis'
+    observed = {'summary': {'by': 'incR', 'arms': [arm(1, 'R-Learner', None, 2500.), arm(2, 'Random', None, 2139., gap=-361.)]}}
+    head, basis, first, second = table(observed)
+    assert basis.split() == ['observed', 'observed', 'observed', 'observed'] and second.split()[2:4] == ['2,139', '-361']
+    assert '0.510' in second and '0.020' in second
+    run = call('run_all', dataset='synthetic/base', algorithms=pick('r_learner', 'random_baseline'), cycles=3, mode='budget')
+    lines, s = table(run), sorted(run['summary']['arms'], key=lambda a: a['rank'])
+    assert lines[3].split()[3] == f"{s[1]['truthIncR'] - s[0]['truthIncR']:+,.0f}"
+    by_gain = table(call('run_all', dataset='synthetic/base', algorithms=pick('r_learner', 'random_baseline'), cycles=3))
+    assert by_gain[0].split()[2:4] == ['gain', '95%'] and by_gain[1].split() == ['truth', 'observed', 'truth', 'truth']
 
 
 def test_qini_and_uplift_at_k_follow_their_definitions():

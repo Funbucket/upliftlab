@@ -77,26 +77,46 @@ def main(argv=None):
         print(f'{dataset} · {len(algorithms)} algorithms · {args.cycles} cycles · device {devices[0]}', file=sys.stderr)
         bridge.set_reporter(lambda m: (lambda d: d.get('phase') == 'done' and print(f"  c{d['cycle']} {d['arm']} done", file=sys.stderr))(json.loads(m)))
         result = bridge.run_all(dataset, algorithms, args.cycles, args.explore, args.target, args.seed, args.mode, args.budget, args.base_learner, args.efficiency)
-        by = result['summary']['by']
-        measure = ('incremental' if by.lower().endswith('incr') else 'gain') + (' (truth)' if by.startswith('truth') else ' (observed)')
-        volume = by.lower().endswith('incr')  # ranked by incremental outcome: the band is the gap to first place, as on the screen
-        print(f"\n{'rank':<5}{'algorithm':<26}{measure:>22}{'vs 1st, 95% CI' if volume else 'observed 95% CI':>30}{'AUCC':>8}{'Qini':>8}{'fit ms':>9}")
-        for s in sorted(result['summary']['arms'], key=lambda s: s['rank']):
-            g, ci, auc, ms = s[by], s['ci'], s['aucc'], s['trainMs']
-            gain = '—' if g is None else f'{g:,.0f}' if volume else f'{g:+.1%}'
-            q = '—' if s['qini'] is None else f"{s['qini']:.3f}"
-            gap = s.get('vsLeader') or {}
-            if volume:
-                band = '1st' if s['rank'] == 1 else '—' if gap.get('diff') is None or gap.get('ci', [None])[0] is None else f"{gap['diff']:+,.0f} [{gap['ci'][0]:+,.0f}, {gap['ci'][1]:+,.0f}]"
-            else:
-                band = '—' if ci[0] is None else f'[{ci[0]:+.1%}, {ci[1]:+.1%}]'
-            auc = '—' if auc is None else f'{auc:.3f}'
-            ms = '—' if ms is None else f'{ms:.0f}'
-            print(f"{s['rank']:<5}{s['name'][:25]:<26}{gain:>22}{band:>30}{auc:>8}{q:>8}{ms:>9}")
+        print('\n' + '\n'.join(table(result)))
         print('\n' + conclusion(result, args.mode))
         if args.out:
             Path(args.out).write_text(json.dumps({'format': 'upliftlab.run/1', **result}, ensure_ascii=False))
             print(f'\nwrote {args.out}', file=sys.stderr)
+
+
+def table(result):
+    """The ranking as lines of text. The second header line names each column's basis. The ranked value, its gap to first
+    place, AUCC and Qini use the ranking's basis; the 95% CI is always observed, since only observed data has sampling
+    error. With synthetic data that adds the observed gap as its own column, which is what an experiment would have shown."""
+    arms, by = result['summary']['arms'], result['summary']['by']
+    truth, volume = by.startswith('truth'), by.lower().endswith('incr')
+    basis, lead = ('truth' if truth else 'observed'), min(arms, key=lambda s: s['rank'])
+    dash = '—'
+    fix = lambda v, f: dash if v is None else format(v, f)  # noqa: E731
+
+    def observed_gap(s):
+        gap = s.get('vsLeader') or {}
+        if s['rank'] == 1:
+            return '1st'
+        if gap.get('diff') is None or (gap.get('ci') or [None])[0] is None:
+            return dash
+        return f"{gap['diff']:+,.0f} [{gap['ci'][0]:+,.0f}, {gap['ci'][1]:+,.0f}]"
+
+    columns = [('incremental' if volume else 'gain', basis, 13, lambda s: fix(s[by], ',.0f' if volume else '+.1%'))]
+    if volume and truth:
+        columns.append(('vs 1st', 'truth', 10, lambda s: '1st' if s['rank'] == 1 else dash if s[by] is None or lead[by] is None else f'{s[by] - lead[by]:+,.0f}'))
+    if volume:
+        columns.append(('vs 1st, 95% CI', 'observed', 26, observed_gap))
+    else:
+        columns.append(('95% CI', 'observed', 20, lambda s: dash if s['ci'][0] is None else f"[{s['ci'][0]:+.1%}, {s['ci'][1]:+.1%}]"))
+    columns += [('AUCC', basis, 10, lambda s: fix(s['auccTruth' if truth else 'aucc'], '.3f')),
+                ('Qini', basis, 10, lambda s: fix(s['qiniTruth' if truth else 'qini'], '.3f')),
+                ('fit ms', '', 8, lambda s: fix(s['trainMs'], '.0f'))]
+    lines = [f"{'rank':<5}{'algorithm':<26}" + ''.join(f'{name:>{w}}' for name, _, w, _ in columns),
+             ' ' * 31 + ''.join(f'{b:>{w}}' for _, b, w, _ in columns)]
+    for s in sorted(arms, key=lambda s: s['rank']):
+        lines.append(f"{s['rank']:<5}{s['name'][:25]:<26}" + ''.join(f'{cell(s):>{w}}' for _, _, w, cell in columns))
+    return lines
 
 
 def conclusion(result, mode):

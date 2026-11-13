@@ -1,8 +1,8 @@
 // Algorithm library: read the built-in code, clone it, write your own, and run a quick check before a full simulation.
-import {$, esc, isNum, int, fix, pp, share, duration, download, go, BRIEF} from '../lib.js?v=0.26.2';
-import {state, subscribe, algorithm, addAlgorithm, updateAlgorithm, removeAlgorithm, quickCheck, templates, unavailable, selectAlgorithm} from '../store.js?v=0.26.2';
-import {createEditor} from '../vendor/editor.js?v=0.26.2';
-import {ENGINE_FILES} from '../engine-files.js?v=0.26.2';
+import {$, esc, isNum, int, fix, pp, share, duration, download, go, BRIEF} from '../lib.js?v=0.26.3';
+import {state, subscribe, algorithm, addAlgorithm, updateAlgorithm, removeAlgorithm, quickCheck, templates, unavailable, selectAlgorithm} from '../store.js?v=0.26.3';
+import {createEditor} from '../vendor/editor.js?v=0.26.3';
+import {ENGINE_FILES} from '../engine-files.js?v=0.26.3';
 
 const checks = new Map();  // algorithm id → last quick-check result, kept while the page is open
 const PEP723 = `# /// script

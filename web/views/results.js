@@ -1,9 +1,9 @@
 // The right panel: the leaderboard, the Exploit group's covariates, per-cycle metrics and the row-level log.
-import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.26.2';
-import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.26.2';
-import {lineChart, interpolate, responsive, interval, forestPlot} from '../charts.js?v=0.26.2';
-import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictPanel} from '../summary.js?v=0.26.2';
-import {downloadReport, printReport, copySummary} from '../report.js?v=0.26.2';
+import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.26.3';
+import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.26.3';
+import {lineChart, interpolate, responsive, interval, forestPlot} from '../charts.js?v=0.26.3';
+import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictPanel} from '../summary.js?v=0.26.3';
+import {downloadReport, printReport, copySummary} from '../report.js?v=0.26.3';
 
 const USE = {train: '학습', validation: '검증', test: '오프라인 평가'};
 const upliftK = run => (isBudget(run) ? run.plan?.budget ?? run.config?.budget : run.plan?.target ?? run.config?.target);

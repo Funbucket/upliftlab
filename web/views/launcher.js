@@ -1,7 +1,7 @@
 // The setup console: a status line of the current settings, then data, models, and the selection rule with its one number, and
 // the start bar. Cycles, the Explore share, the base model and the seed fold under 고급 설정 with working defaults.
-import {$, esc, int, share, duration, go, BRIEF, MAX_ALGORITHMS, SELECTION, BUDGET_MODES} from '../lib.js?v=0.26.2';
-import {state, subscribe, dataset, datasetReady, running, startRun, estimate, algorithm, unavailable, setDraft, selectAlgorithm, planOf, wordsFor} from '../store.js?v=0.26.2';
+import {$, esc, int, share, duration, go, BRIEF, MAX_ALGORITHMS, SELECTION, BUDGET_MODES} from '../lib.js?v=0.26.3';
+import {state, subscribe, dataset, datasetReady, running, startRun, estimate, algorithm, unavailable, setDraft, selectAlgorithm, planOf, wordsFor} from '../store.js?v=0.26.3';
 
 const CYCLES = [4, 6, 8, 10, 12];
 const worst = d => { const levels = (d.stored?.profile?.checks || []).map(c => c.level); return levels.includes('bad') ? 'bad' : levels.includes('warn') ? 'warn' : null; };

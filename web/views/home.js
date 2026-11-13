@@ -1,8 +1,8 @@
 // The home page's own pieces: the timing tower that replays the bundled example cycle by cycle, the run loop drawn as a
 // circuit, and the install commands. They read the bundled example only, so they stay the same whatever run is shown below.
-import {$, $$, esc, int, isNum, josa, selectionLabel} from '../lib.js?v=0.26.2';
-import {EXAMPLE_RUN, wordsFor} from '../store.js?v=0.26.2';
-import {armsOf, datasetOf} from '../summary.js?v=0.26.2';
+import {$, $$, esc, int, isNum, josa, selectionLabel} from '../lib.js?v=0.26.3';
+import {EXAMPLE_RUN, wordsFor} from '../store.js?v=0.26.3';
+import {armsOf, datasetOf} from '../summary.js?v=0.26.3';
 
 const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ROW = 58;

@@ -1,10 +1,10 @@
 // The main screen: the hero with the timing tower, the setup console, the result of the run, how a cycle works, and how to run
 // it locally.
-import {$, go} from '../lib.js?v=0.26.2';
-import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.26.2';
-import {launcherPanel} from './launcher.js?v=0.26.2';
-import {resultsPanel} from './results.js?v=0.26.2';
-import {towerPanel, loopPanel, installPanel} from './home.js?v=0.26.2';
+import {$, go} from '../lib.js?v=0.26.3';
+import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.26.3';
+import {launcherPanel} from './launcher.js?v=0.26.3';
+import {resultsPanel} from './results.js?v=0.26.3';
+import {towerPanel, loopPanel, installPanel} from './home.js?v=0.26.3';
 
 const STEPS = [
   ['대상을 골라요', '모델마다 점수가 높은 순으로, 같은 예산 안에서 처치할 사용자를 골라요.'],
