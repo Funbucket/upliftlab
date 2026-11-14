@@ -15,6 +15,7 @@ import time
 import numpy as np
 
 from . import contract
+from .i18n import tr as say  # `tr` is a local name for true effects below
 from .metrics import aucc, cell, cost_curve, pooled, qini, qini_draws, qini_of_draws, top_sums, uplift_at
 from .scenario import SyntheticScenario, seed_of
 
@@ -274,17 +275,17 @@ class Arm:
 class Run:
     def __init__(self, scenario, algorithms, explore=.2, target=.4, seed=42, window=3, device='cpu', mode='quantile', budget=.4, base_learner='ridge', efficiency=.2):
         if not algorithms:
-            raise ValueError('알고리즘을 하나 이상 고르세요.')
+            raise ValueError(say('알고리즘을 하나 이상 고르세요.', 'Pick at least one algorithm.'))
         if len({a['id'] for a in algorithms}) != len(algorithms):
-            raise ValueError('같은 알고리즘이 두 번 들어 있어요.')
+            raise ValueError(say('같은 알고리즘이 두 번 들어 있어요.', 'The same algorithm is in twice.'))
         if not (0 < explore < 1 and 0 < target <= 1 and 0 < budget <= 1):
-            raise ValueError('Explore 비율, Exploit 비율, 예산 비율은 0과 1 사이여야 해요.')
+            raise ValueError(say('Explore 비율, Exploit 비율, 예산 비율은 0과 1 사이여야 해요.', 'The Explore, Exploit and budget shares must be between 0 and 1.'))
         if not 0 <= efficiency <= 5:
-            raise ValueError('최소 효율 개선은 0과 5 사이여야 해요.')
+            raise ValueError(say('최소 효율 개선은 0과 5 사이여야 해요.', 'The minimum efficiency gain must be between 0 and 5.'))
         if mode not in MODES:
-            raise ValueError(f'알 수 없는 선정 방식이에요: {mode}')
+            raise ValueError(say(f'알 수 없는 선정 방식이에요: {mode}', f'Unknown selection rule: {mode}'))
         if base_learner not in BASE_LEARNERS:
-            raise ValueError(f'알 수 없는 기본 모델이에요: {base_learner}')
+            raise ValueError(say(f'알 수 없는 기본 모델이에요: {base_learner}', f'Unknown base learner: {base_learner}'))
         self.scenario, self.explore, self.target, self.seed, self.window, self.device = scenario, explore, target, seed, window, device
         self.mode, self.budget, self.base_learner, self.efficiency = mode, budget, base_learner, efficiency
         self.arms = [Arm(a) for a in algorithms]
@@ -309,7 +310,7 @@ class Run:
 
     def step(self, report=lambda message: None):
         if self.done:
-            raise ValueError('이미 끝난 실행이에요.')
+            raise ValueError(say('이미 끝난 실행이에요.', 'This run has already finished.'))
         self.cycle += 1
         c, pop = self.cycle, self.scenario.cohort(self.cycle)
         n, K = len(pop), pop.treatments

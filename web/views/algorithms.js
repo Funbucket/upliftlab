@@ -1,8 +1,9 @@
 // Algorithm library: read the built-in code, clone it, write your own, and run a quick check before a full simulation.
-import {$, esc, isNum, int, fix, pp, share, duration, download, go, BRIEF} from '../lib.js?v=0.26.4';
-import {state, subscribe, algorithm, addAlgorithm, updateAlgorithm, removeAlgorithm, quickCheck, templates, unavailable, selectAlgorithm} from '../store.js?v=0.26.4';
-import {createEditor} from '../vendor/editor.js?v=0.26.4';
-import {ENGINE_FILES} from '../engine-files.js?v=0.26.4';
+import {$, esc, isNum, int, fix, pp, share, duration, download, go, BRIEF} from '../lib.js?v=0.26.5';
+import {state, subscribe, algorithm, addAlgorithm, updateAlgorithm, removeAlgorithm, quickCheck, templates, unavailable, selectAlgorithm} from '../store.js?v=0.26.5';
+import {createEditor} from '../vendor/editor.js?v=0.26.5';
+import {ENGINE_FILES} from '../engine-files.js?v=0.26.5';
+import {EN, tr} from '../i18n.js?v=0.26.5';
 
 const checks = new Map();  // algorithm id → last quick-check result, kept while the page is open
 const PEP723 = `# /// script
@@ -12,13 +13,13 @@ const PEP723 = `# /// script
 // One library of a file and what this runtime can do with it.
 function lib(l) {
   const local = state.engine.kind === 'local';
-  const note = {ok: l.version || '설치됨', auto: `${l.version ? l.version + ' · ' : ''}실행 시 로딩`, declared: 'PyPI에서 설치',
-    local: '로컬 실행 필요', missing: local ? `pip install ${l.package}` : '브라우저 미지원', failed: '설치 실패'}[l.status];
+  const note = {ok: l.version || tr('설치됨', 'installed'), auto: `${l.version ? l.version + ' · ' : ''}${tr('실행 시 로딩', 'loads at run time')}`, declared: tr('PyPI에서 설치', 'from PyPI'),
+    local: tr('로컬 실행 필요', 'local edition only'), missing: local ? `pip install ${l.package}` : tr('브라우저 미지원', 'not in the browser'), failed: tr('설치 실패', 'install failed')}[l.status];
   return `<span class="lib ${l.status ? 'is-' + l.status : ''}" ${l.note ? `title="${esc(l.note)}"` : ''}><b>${esc(l.package)}</b>${note ? `<small>${esc(note)}</small>` : ''}</span>`;
 }
 function libs(list) {
   if (!list) return '';
-  return `<div class="libs"><span class="libs-label">라이브러리</span>${list.length ? list.map(lib).join('') : '<span class="muted">Python 표준 라이브러리만 사용</span>'}</div>`;
+  return `<div class="libs"><span class="libs-label">${tr('라이브러리', 'Libraries')}</span>${list.length ? list.map(lib).join('') : `<span class="muted">${tr('Python 표준 라이브러리만 사용', 'Python standard library only')}</span>`}</div>`;
 }
 
 // A built-in has two files: the EconML one (algorithms/<id>.py, run locally) and the scikit-learn lite one (algorithms/lite/<id>.py,
@@ -39,26 +40,26 @@ export function algorithmsView(root, {id, query}) {
   const vars = variantsOf(a);
   let editor = null, view = vars ? 'econml' : null;  // the EconML file first: it is what the algorithm is; the lite file is what a browser runs
   const runs = () => (a.implementation === 'econml' ? 'econml' : 'lite');
-  root.innerHTML = `<section class="page algos"><a class="back" href="#/">← 시뮬레이션</a><header class="page-head row"><div><h1>알고리즘</h1><p>알고리즘은 <code>class Model</code>을 담은 Python 파일이에요. scikit-learn, LightGBM, PyTorch 같은 라이브러리를 그대로 import하고, 시뮬레이션은 이 코드를 그대로 실행해요.</p></div>
-    <div class="menu"><button type="button" class="btn btn-primary" data-act="new" aria-haspopup="true" aria-expanded="false">알고리즘 추가</button><div class="menu-pop new-pop" id="new-pop" hidden></div></div></header>
-    <div class="algo-layout"><nav class="card algo-nav" id="algo-nav" aria-label="알고리즘 목록"></nav>
+  root.innerHTML = `<section class="page algos"><a class="back" href="#/">${tr('← 시뮬레이션', '← Simulation')}</a><header class="page-head row"><div><h1>${tr('알고리즘', 'Algorithms')}</h1><p>${tr('알고리즘은 <code>class Model</code>을 담은 Python 파일이에요. scikit-learn, LightGBM, PyTorch 같은 라이브러리를 그대로 import하고, 시뮬레이션은 이 코드를 그대로 실행해요.', 'An algorithm is a Python file with a <code>class Model</code>. It imports scikit-learn, LightGBM or PyTorch as usual, and the simulation runs exactly this code.')}</p></div>
+    <div class="menu"><button type="button" class="btn btn-primary" data-act="new" aria-haspopup="true" aria-expanded="false">${tr('알고리즘 추가', 'Add algorithm')}</button><div class="menu-pop new-pop" id="new-pop" hidden></div></div></header>
+    <div class="algo-layout"><nav class="card algo-nav" id="algo-nav" aria-label="${tr('알고리즘 목록', 'Algorithms')}"></nav>
     <div class="algo-main"><section class="card algo-head" id="algo-head"></section>
-      <p class="contract-line"><code>class Model</code>에 <code>fit(train, validation)</code>과 <code>predict(X)</code>를 구현해요. <code>predict</code>의 점수가 높은 순서로 Exploit 그룹을 선정해요.</p>
-      <section class="card editor-card"><div class="editor-bar">${vars ? '<div class="seg seg-impl" role="radiogroup" aria-label="구현"><button type="button" role="radio" data-view="econml">EconML</button><button type="button" role="radio" data-view="lite">웹 경량판</button></div>' : ''}<code id="code-path">${esc(a.builtin ? a.file : `내 알고리즘 · ${a.id}.py`)}</code><span class="tag ${a.builtin ? '' : 'tag-blue'}">${a.builtin ? '읽기 전용' : '편집 가능 · 브라우저에 저장'}</span><span class="spacer"></span><span class="muted small">⌘/Ctrl + Enter 빠른 검사</span></div><div class="code" id="code"></div><div class="editor-status" id="editor-status" role="status"></div></section>
+      <p class="contract-line">${tr('<code>class Model</code>에 <code>fit(train, validation)</code>과 <code>predict(X)</code>를 구현해요. <code>predict</code>의 점수가 높은 순서로 Exploit 그룹을 선정해요.', 'Implement <code>fit(train, validation)</code> and <code>predict(X)</code> on <code>class Model</code>. The Exploit group is selected by <code>predict</code>’s score, highest first.')}</p>
+      <section class="card editor-card"><div class="editor-bar">${vars ? `<div class="seg seg-impl" role="radiogroup" aria-label="${tr('구현', 'Implementation')}"><button type="button" role="radio" data-view="econml">EconML</button><button type="button" role="radio" data-view="lite">${tr('웹 경량판', 'Web lite')}</button></div>` : ''}<code id="code-path">${esc(a.builtin ? a.file : `${tr('내 알고리즘', 'My algorithm')} · ${a.id}.py`)}</code><span class="tag ${a.builtin ? '' : 'tag-blue'}">${a.builtin ? tr('읽기 전용', 'Read-only') : tr('편집 가능 · 브라우저에 저장', 'Editable · saved in the browser')}</span><span class="spacer"></span><span class="muted small">${tr('⌘/Ctrl + Enter 빠른 검사', '⌘/Ctrl + Enter quick check')}</span></div><div class="code" id="code"></div><div class="editor-status" id="editor-status" role="status"></div></section>
       <section class="card" id="algo-check"></section>
       <details class="card fold" id="contract"></details>
     </div></div></section>`;
 
   function nav() {
-    const item = x => `<a href="#/algorithms/${encodeURIComponent(x.id)}" class="${x.id === a.id ? 'is-on' : ''}" ${x.id === a.id ? 'aria-current="page"' : ''}><b>${esc(x.name)}</b>${x.ok === false ? '<em class="tag tag-red">오류</em>' : ''}<small>${esc(BRIEF[x.id] || x.summary || (x.builtin ? '' : '내 알고리즘'))}</small></a>`;
+    const item = x => `<a href="#/algorithms/${encodeURIComponent(x.id)}" class="${x.id === a.id ? 'is-on' : ''}" ${x.id === a.id ? 'aria-current="page"' : ''}><b>${esc(x.name)}</b>${x.ok === false ? `<em class="tag tag-red">${tr('오류', 'Error')}</em>` : ''}<small>${esc(BRIEF[x.id] || x.summary || (x.builtin ? '' : tr('내 알고리즘', 'My algorithm')))}</small></a>`;
     const mine = state.algorithms.filter(x => !x.builtin);
-    $('#algo-nav', root).innerHTML = `<h3 class="group">기본 제공<span>${state.algorithms.filter(x => x.builtin).length}</span></h3>${state.algorithms.filter(x => x.builtin).map(item).join('')}
-      <h3 class="group">내 알고리즘<span>${mine.length}</span></h3>${mine.length ? mine.map(item).join('') : '<p class="muted small pad">복제하거나 추가한 알고리즘이 여기에 표시돼요.</p>'}`;
+    $('#algo-nav', root).innerHTML = `<h3 class="group">${tr('기본 제공', 'Built-in')}<span>${state.algorithms.filter(x => x.builtin).length}</span></h3>${state.algorithms.filter(x => x.builtin).map(item).join('')}
+      <h3 class="group">${tr('내 알고리즘', 'My algorithms')}<span>${mine.length}</span></h3>${mine.length ? mine.map(item).join('') : `<p class="muted small pad">${tr('복제하거나 추가한 알고리즘이 여기에 표시돼요.', 'Algorithms you copy or add appear here.')}</p>`}`;
   }
   // Built-ins run on EconML locally and as scikit-learn lite files in the browser, which has no EconML.
   function impl() {
     if (!vars) return '';
-    return `<p class="algo-impl">EconML(PyWhy)로 구현했어요. 브라우저에는 EconML이 없어서, 웹에서는 같은 방법을 scikit-learn으로 쓴 경량판이 돌아가요. 지금 이 환경에서는 <b>${runs() === 'econml' ? 'EconML' : '웹 경량판'}</b> 코드로 시뮬레이션해요.</p>`;
+    return EN ? `<p class="algo-impl">Built on EconML (PyWhy). The browser has no EconML, so the web runs a lite version of the same method written with scikit-learn. Here the simulation runs the <b>${runs() === 'econml' ? 'EconML' : 'web lite'}</b> code.</p>` : `<p class="algo-impl">EconML(PyWhy)로 구현했어요. 브라우저에는 EconML이 없어서, 웹에서는 같은 방법을 scikit-learn으로 쓴 경량판이 돌아가요. 지금 이 환경에서는 <b>${runs() === 'econml' ? 'EconML' : '웹 경량판'}</b> 코드로 시뮬레이션해요.</p>`;
   }
   function showView() {
     if (!vars) return;
@@ -67,50 +68,66 @@ export function algorithmsView(root, {id, query}) {
     editor?.setValue(vars[view].code);
   }
   function head() {
-    $('#algo-head', root).innerHTML = `<div class="algo-title"><h2>${esc(a.name)}</h2>${a.builtin ? '<span class="tag">기본 제공</span>' : '<span class="tag tag-blue">내 코드</span>'}${a.base ? `<span class="muted small">원본 · ${esc(algorithm(a.base)?.name || a.base)}</span>` : ''}</div>
-      <p class="algo-summary">${esc(a.summary || (a.builtin ? '' : 'docstring의 첫 문단이 여기에 표시돼요.'))}</p>${impl()}${libs(vars && view !== runs() ? importsOf(vars[view].code, state.engine.kind === 'local') : a.libraries)}
-      <div class="algo-actions">${a.builtin ? '<button type="button" class="btn btn-primary" data-act="clone">복제해서 수정</button>' : ''}<a class="btn ${a.builtin ? 'btn-quiet' : 'btn-primary'}" href="#/?algo=${encodeURIComponent(a.id)}">시뮬레이션에 추가</a><button type="button" class="btn btn-quiet" data-act="check">빠른 검사</button>
-      ${a.builtin ? '' : '<button type="button" class="btn btn-quiet" data-act="clone">복제</button>'}<button type="button" class="btn btn-quiet" data-act="download">.py 내려받기</button>${a.builtin ? '' : '<button type="button" class="btn btn-text danger" data-act="delete">삭제</button>'}</div>`;
+    $('#algo-head', root).innerHTML = `<div class="algo-title"><h2>${esc(a.name)}</h2>${a.builtin ? `<span class="tag">${tr('기본 제공', 'Built-in')}</span>` : `<span class="tag tag-blue">${tr('내 코드', 'My code')}</span>`}${a.base ? `<span class="muted small">${tr('원본', 'from')} · ${esc(algorithm(a.base)?.name || a.base)}</span>` : ''}</div>
+      <p class="algo-summary">${esc(a.summary || (a.builtin ? '' : tr('docstring의 첫 문단이 여기에 표시돼요.', 'The first paragraph of the docstring shows here.')))}</p>${impl()}${libs(vars && view !== runs() ? importsOf(vars[view].code, state.engine.kind === 'local') : a.libraries)}
+      <div class="algo-actions">${a.builtin ? `<button type="button" class="btn btn-primary" data-act="clone">${tr('복제해서 수정', 'Copy to edit')}</button>` : ''}<a class="btn ${a.builtin ? 'btn-quiet' : 'btn-primary'}" href="#/?algo=${encodeURIComponent(a.id)}">${tr('시뮬레이션에 추가', 'Add to the simulation')}</a><button type="button" class="btn btn-quiet" data-act="check">${tr('빠른 검사', 'Quick check')}</button>
+      ${a.builtin ? '' : `<button type="button" class="btn btn-quiet" data-act="clone">${tr('복제', 'Copy')}</button>`}<button type="button" class="btn btn-quiet" data-act="download">${tr('.py 내려받기', 'Download .py')}</button>${a.builtin ? '' : `<button type="button" class="btn btn-text danger" data-act="delete">${tr('삭제', 'Delete')}</button>`}</div>`;
   }
   function status() {
     const el = $('#editor-status', root);
     if (a.builtin) {
       el.className = 'editor-status';
-      const where = state.engine.kind === 'local' ? '이 컴퓨터' : '웹';
-      el.textContent = !vars ? '기본 제공 코드는 읽기 전용이에요. 복제하면 수정할 수 있어요.'
+      const where = state.engine.kind === 'local' ? tr('이 컴퓨터', 'this computer') : tr('웹', 'the web');
+      el.textContent = EN ? (!vars ? 'Built-in code is read-only. Copy it to edit.'
+        : view === runs() ? `Simulations on ${where} run this code. Copy it to edit.`
+          : view === 'econml' ? 'This code runs in the local edition (upliftlab). The web runs the ‘Web lite’ tab.' : 'The lite version that runs in the browser. This computer runs the ‘EconML’ tab.')
+        : !vars ? '기본 제공 코드는 읽기 전용이에요. 복제하면 수정할 수 있어요.'
         : view === runs() ? `${where}에서 시뮬레이션하면 이 코드가 돌아가요. 복제하면 수정할 수 있어요.`
           : view === 'econml' ? '로컬(upliftlab)에서 돌아가는 코드예요. 웹에서는 ‘웹 경량판’ 탭의 코드가 돌아가요.' : '브라우저에서 돌아가는 경량판이에요. 이 컴퓨터에서는 ‘EconML’ 탭의 코드가 돌아가요.';
       return;
     }
     el.className = 'editor-status ' + (a.ok === false ? 'is-error' : a.ok ? 'is-ok' : '');
-    el.innerHTML = a.ok === false ? `${a.line ? `<button type="button" class="btn btn-text" data-line="${a.line}">${a.line}번째 줄</button> · ` : ''}${esc(a.error)}` : a.ok ? '저장됨 · class Model 확인 · 이름은 코드의 NAME 값'
-      : state.engine.loading ? `저장됨 · 라이브러리 로딩 중 · ${esc(state.engine.loading)}` : '저장됨 · 확인 중…';
+    el.innerHTML = a.ok === false ? `${a.line ? `<button type="button" class="btn btn-text" data-line="${a.line}">${EN ? `Line ${a.line}` : `${a.line}번째 줄`}</button> · ` : ''}${esc(a.error)}` : a.ok ? tr('저장됨 · class Model 확인 · 이름은 코드의 NAME 값', 'Saved · class Model found · the name is NAME in the code')
+      : state.engine.loading ? `${tr('저장됨 · 라이브러리 로딩 중', 'Saved · loading libraries')} · ${esc(state.engine.loading)}` : tr('저장됨 · 확인 중…', 'Saved · checking…');
   }
   function result() {
     const box = $('#algo-check', root), r = checks.get(a.id), busy = state.activity?.id === a.id;
     if (busy) {
       const last = state.activity.trace.at(-1);
-      box.innerHTML = `<div class="card-head"><div><h2>빠른 검사 중</h2><p>${state.engine.loading ? `라이브러리 로딩 중 · ${esc(state.engine.loading)}` : '기본 시장의 Explore 데이터로 학습 중이에요.'}</p></div></div>${last?.total ? `<div class="meter"><i style="transform:scaleX(${(last.step / last.total).toFixed(3)})"></i></div><p class="muted small">${int(last.step)} / ${int(last.total)}${isNum(last.loss) ? ` · loss ${fix(last.loss, 4)}` : ''}</p>` : '<div class="meter is-busy"><i></i></div>'}`;
+      box.innerHTML = `<div class="card-head"><div><h2>${tr('빠른 검사 중', 'Quick check running')}</h2><p>${state.engine.loading ? `${tr('라이브러리 로딩 중', 'Loading libraries')} · ${esc(state.engine.loading)}` : tr('기본 시장의 Explore 데이터로 학습 중이에요.', 'Training on the base market’s Explore data.')}</p></div></div>${last?.total ? `<div class="meter"><i style="transform:scaleX(${(last.step / last.total).toFixed(3)})"></i></div><p class="muted small">${int(last.step)} / ${int(last.total)}${isNum(last.loss) ? ` · loss ${fix(last.loss, 4)}` : ''}</p>` : '<div class="meter is-busy"><i></i></div>'}`;
       return;
     }
-    if (!r) { box.innerHTML = `<div class="card-head"><div><h2>빠른 검사</h2><p>전체 시뮬레이션 전에 합성 데이터의 Explore 행(약 12,000행)으로 한 번 학습하고 평가해요. 오류가 있으면 줄 번호를 표시해요.${vars ? ` 이 환경에서 돌아가는 ${runs() === 'econml' ? 'EconML' : '웹 경량판'} 코드로 검사해요.` : ''}</p></div></div>`; return; }
-    if (!r.ok) { box.innerHTML = `<div class="card-head"><div><h2>빠른 검사 · 실패</h2></div></div><p class="error-text">${r.line ? `<button type="button" class="btn btn-text" data-line="${r.line}">${r.line}번째 줄</button> · ` : ''}${esc(r.error)}</p>`; return; }
+    if (!r) { box.innerHTML = `<div class="card-head"><div><h2>${tr('빠른 검사', 'Quick check')}</h2><p>${EN ? `Before a full simulation, trains and evaluates once on the Explore rows of synthetic data (about 12,000 rows), and points to the line of any error.${vars ? ` It checks the ${runs() === 'econml' ? 'EconML' : 'web lite'} code that runs here.` : ''}` : `전체 시뮬레이션 전에 합성 데이터의 Explore 행(약 12,000행)으로 한 번 학습하고 평가해요. 오류가 있으면 줄 번호를 표시해요.${vars ? ` 이 환경에서 돌아가는 ${runs() === 'econml' ? 'EconML' : '웹 경량판'} 코드로 검사해요.` : ''}`}</p></div></div>`; return; }
+    if (!r.ok) { box.innerHTML = `<div class="card-head"><div><h2>${tr('빠른 검사 · 실패', 'Quick check · failed')}</h2></div></div><p class="error-text">${r.line ? `<button type="button" class="btn btn-text" data-line="${r.line}">${EN ? `Line ${r.line}` : `${r.line}번째 줄`}</button> · ` : ''}${esc(r.error)}</p>`; return; }
     const losses = r.trace.filter(m => isNum(m.loss));
-    box.innerHTML = `<div class="card-head"><div><h2>빠른 검사 · 통과</h2><p>train ${int(r.split.train)}행 · validation ${int(r.split.validation)}행 · test ${int(r.split.test)}행. 시뮬레이션의 재학습과 같은 방식이에요.</p></div></div>
-      <dl class="kpis"><div><dt>테스트 AUCC · 참값</dt><dd>${fix(r.auccTruth, 3)}</dd><small>무작위 ≈ 0.5</small></div><div><dt>테스트 AUCC · 관측</dt><dd>${fix(r.aucc, 3)}</dd><small>표본 오차 포함</small></div><div><dt>검증 AUCC</dt><dd>${fix(r.val, 3)}</dd><small>fit() 직후</small></div><div><dt>Qini · 참값</dt><dd>${fix(r.qiniTruth, 3)}</dd><small>무작위 ≈ 0 · 비용 미반영</small></div><div><dt>Uplift@${share(r.upliftK)} · 참값</dt><dd>${pp(r.upliftAtTruth, 1)}</dd><small>점수 상위 ${share(r.upliftK)}의 ATEʳ</small></div><div><dt>학습 시간</dt><dd>${duration(r.ms)}</dd><small>예측 ${duration(r.predictMs)}</small></div></dl>
-      ${losses.length > 2 ? `<figure class="spark"><figcaption>context.report로 보낸 loss · ${losses.length}회</figcaption>${sparkline(losses.map(m => m.loss))}</figure>` : ''}`;
+    box.innerHTML = `<div class="card-head"><div><h2>${tr('빠른 검사 · 통과', 'Quick check · passed')}</h2><p>${EN ? `train ${int(r.split.train)} · validation ${int(r.split.validation)} · test ${int(r.split.test)} rows, split the way the simulation retrains.` : `train ${int(r.split.train)}행 · validation ${int(r.split.validation)}행 · test ${int(r.split.test)}행. 시뮬레이션의 재학습과 같은 방식이에요.`}</p></div></div>
+      <dl class="kpis"><div><dt>${tr('테스트 AUCC · 참값', 'Test AUCC · truth')}</dt><dd>${fix(r.auccTruth, 3)}</dd><small>${tr('무작위 ≈ 0.5', 'random ≈ 0.5')}</small></div><div><dt>${tr('테스트 AUCC · 관측', 'Test AUCC · observed')}</dt><dd>${fix(r.aucc, 3)}</dd><small>${tr('표본 오차 포함', 'with sampling error')}</small></div><div><dt>${tr('검증 AUCC', 'Validation AUCC')}</dt><dd>${fix(r.val, 3)}</dd><small>${tr('fit() 직후', 'right after fit()')}</small></div><div><dt>${tr('Qini · 참값', 'Qini · truth')}</dt><dd>${fix(r.qiniTruth, 3)}</dd><small>${tr('무작위 ≈ 0 · 비용 미반영', 'random ≈ 0 · ignores cost')}</small></div><div><dt>Uplift@${share(r.upliftK)} · ${tr('참값', 'truth')}</dt><dd>${pp(r.upliftAtTruth, 1)}</dd><small>${EN ? `ATEʳ of the top ${share(r.upliftK)} by score` : `점수 상위 ${share(r.upliftK)}의 ATEʳ`}</small></div><div><dt>${tr('학습 시간', 'Fit time')}</dt><dd>${duration(r.ms)}</dd><small>${tr('예측', 'predict')} ${duration(r.predictMs)}</small></div></dl>
+      ${losses.length > 2 ? `<figure class="spark"><figcaption>${EN ? `loss sent with context.report · ${losses.length} times` : `context.report로 보낸 loss · ${losses.length}회`}</figcaption>${sparkline(losses.map(m => m.loss))}</figure>` : ''}`;
   }
   function contract() {
     const local = state.engine.kind === 'local', info = state.engine.info;
-    const where = local ? `로컬 · Python ${esc(info?.python || '')} · ${esc(info?.device || 'cpu')}`
-      : state.engine.status === 'ready' ? `브라우저 · Pyodide (Python ${esc(info?.python || '')})` : '실행 환경 준비 중';
+    const where = local ? `${tr('로컬', 'local')} · Python ${esc(info?.python || '')} · ${esc(info?.device || 'cpu')}`
+      : state.engine.status === 'ready' ? `${tr('브라우저', 'browser')} · Pyodide (Python ${esc(info?.python || '')})` : tr('실행 환경 준비 중', 'starting');
     const el = $('#contract', root), open = el.open;
-    el.innerHTML = `<summary>알고리즘 계약 · 라이브러리</summary><div class="contract"><pre class="mono">class Model:
+    el.innerHTML = EN ? `<summary>Algorithm contract · libraries</summary><div class="contract"><pre class="mono">class Model:
+    def fit(self, train, validation, context): ...   # context is optional
+    def predict(self, X): return scores               # an (n,) array; (n, K) with K treatments
+    # or {"score": scores, "eligible": bool array, "arm": treatment numbers}</pre>
+      <dl class="defs"><div><dt>One self-contained file</dt><dd>It doesn’t import upliftlab. Keep helper functions in the file and import libraries as usual. A downloaded .py runs in a notebook too.</dd></div>
+      <div><dt>train · validation</dt><dd>X (n×d NumPy array), t (0 = control, 1–K = treatment), y (outcome), cost, propensity, treatments (K), propensities (P(T=k | T∈{0,k}) per treatment), features (column names). 60% and 20% of the Explore rows of the last 3 cycles. The other 20% (test) is used only by the quick check; during a run, offline evaluation uses the next cycle’s Explore group.</dd></div>
+      <div><dt>score_is_effect</dt><dd>Knapsack and the efficiency floor read the score as an expected effect. If your score is a rank or already nets out cost, set score_is_effect = False on Model.</dd></div>
+      <div><dt>context</dt><dd>seed, model_seed, device ('cpu' or 'cuda:0'), target_fraction (q or the budget share), cycle, base_learner ('ridge' or 'tree'), treatments, report(**metrics). Values sent with report (step, total, loss…) show on screen as they arrive.</dd></div>
+      <div><dt>score</dt><dd>A finite 1-D array as long as the input (NumPy array, list or PyTorch tensor). The top q% by score, or under a budget the users until it runs out, form the Exploit group. With K treatments return an (n, K) array and each row gets its highest-scoring treatment; arm sets the treatment directly. Rows with eligible = False are never selected.</dd></div>
+      <div><dt>When it fails</dt><dd>A cycle whose fit() fails keeps the previous model. If the first fit fails, selection stays random.</dd></div>
+      <div><dt>Missing libraries</dt><dd>Loading stops and shows which packages are missing and how to install them. The simulation doesn’t start.</dd></div></dl>
+      <div class="env"><h3>Running on · ${where}</h3>
+      ${local ? '<p>Uses the packages installed in the running Python. Install anything missing with <code>pip install</code> and check again. The GPU arrives as <code>context.device</code>.</p>'
+        : `<p>Pyodide packages load automatically when imported. Other pure-Python packages install before the run if you declare them at the top of the file (PEP 723). Libraries with no browser build, such as PyTorch, run in the local edition.</p><pre class="mono">${PEP723}</pre>`}` : `<summary>알고리즘 계약 · 라이브러리</summary><div class="contract"><pre class="mono">class Model:
     def fit(self, train, validation, context): ...   # context는 빼도 돼요
     def predict(self, X): return scores               # (행 수,) 배열. 처치가 K종류면 (행 수, K) 배열
     # 또는 {"score": scores, "eligible": bool 배열, "arm": 처치 번호 배열}</pre>
       <dl class="defs"><div><dt>파일 하나로 완결</dt><dd>upliftlab을 import하지 않아요. 필요한 함수는 파일 안에 두고, 라이브러리는 그대로 import해요. 내려받은 .py는 노트북에서도 실행돼요.</dd></div>
-      <div><dt>train · validation</dt><dd>X (n×d NumPy 배열), t (0 = 대조군, 1~K = 처치), y (결과), cost (비용), propensity, treatments (처치 수 K), propensities (처치별 P(T=k | T∈{0,k})), features (열 이름). 최근 3사이클 Explore 행의 60% · 20%예요. 나머지 20%는 test로 오프라인 평가에만 써요.</dd></div>
+      <div><dt>train · validation</dt><dd>X (n×d NumPy 배열), t (0 = 대조군, 1~K = 처치), y (결과), cost (비용), propensity, treatments (처치 수 K), propensities (처치별 P(T=k | T∈{0,k})), features (열 이름). 최근 3사이클 Explore 행의 60% · 20%예요. 나머지 20%(test)는 빠른 검사에서만 쓰고, 실행 중 오프라인 평가는 다음 사이클의 Explore 그룹으로 해요.</dd></div>
       <div><dt>score_is_effect</dt><dd>Knapsack과 효율 제약 선정은 점수를 기대 효과로 읽어요. 순위나 비용을 뺀 값을 점수로 낸다면 Model에 score_is_effect = False를 두세요.</dd></div>
       <div><dt>context</dt><dd>seed, model_seed, device ('cpu' 또는 'cuda:0'), target_fraction (q 또는 예산 비율), cycle, base_learner ('ridge' 또는 'tree'), treatments, report(**metrics). report로 보낸 값(step, total, loss 등)이 화면에 실시간으로 표시돼요.</dd></div>
       <div><dt>score</dt><dd>입력 행 수와 같은 길이의 유한한 1차원 배열(NumPy 배열, 리스트, PyTorch 텐서)이에요. 점수 상위 q%, 또는 예산 제약이면 예산이 소진될 때까지 Exploit 그룹에 들어가요. 처치가 K종류면 (행 수, K) 배열을 반환하고, 행마다 점수가 가장 큰 처치를 골라요. arm으로 처치를 직접 정할 수도 있어요. eligible을 주면 False인 행은 선정에서 제외해요.</dd></div>
@@ -123,12 +140,12 @@ export function algorithmsView(root, {id, query}) {
     el.open = open;
   }
   function starters() {
-    $('#new-pop', root).innerHTML = `<div class="menu-title">시작 템플릿</div><ul>${templates().map(t => { const gone = unavailable(t); return `<li><a href="#" data-template="${esc(t.id)}"><b>${esc(t.name)}</b><span>${esc(t.summary)}</span><span class="menu-libs">${t.libraries.map(l => esc(l.package)).join(' · ')}${gone ? ` · ${gone.short}` : ''}</span></a></li>`; }).join('')}</ul>
-      <div class="menu-note">기본 알고리즘을 수정하려면 목록에서 선택한 뒤 ‘복제해서 수정’을 눌러요.</div>`;
+    $('#new-pop', root).innerHTML = `<div class="menu-title">${tr('시작 템플릿', 'Starting templates')}</div><ul>${templates().map(t => { const gone = unavailable(t); return `<li><a href="#" data-template="${esc(t.id)}"><b>${esc(t.name)}</b><span>${esc(t.summary)}</span><span class="menu-libs">${t.libraries.map(l => esc(l.package)).join(' · ')}${gone ? ` · ${gone.short}` : ''}</span></a></li>`; }).join('')}</ul>
+      <div class="menu-note">${tr('기본 알고리즘을 수정하려면 목록에서 선택한 뒤 ‘복제해서 수정’을 눌러요.', 'To change a built-in, select it in the list and choose ‘Copy to edit’.')}</div>`;
   }
   const closeMenu = () => { const pop = $('#new-pop', root); if (!pop.hidden) { pop.hidden = true; $('[data-act="new"]', root).setAttribute('aria-expanded', 'false'); } };
   nav(); head(); status(); result(); contract();
-  editor = createEditor($('#code', root), vars ? vars[view].code : a.code, code => { if (a.builtin) return; if (!updateAlgorithm(a, code)) $('#editor-status', root).textContent = '저장 공간이 부족해요 · .py로 내려받아 두세요'; else status(); }, () => runCheck(), !!a.builtin);
+  editor = createEditor($('#code', root), vars ? vars[view].code : a.code, code => { if (a.builtin) return; if (!updateAlgorithm(a, code)) $('#editor-status', root).textContent = tr('저장 공간이 부족해요 · .py로 내려받아 두세요', 'Out of storage · download it as .py'); else status(); }, () => runCheck(), !!a.builtin);
   showView();
 
   async function runCheck() {
@@ -137,7 +154,7 @@ export function algorithmsView(root, {id, query}) {
     checks.set(a.id, out); result();
   }
   const clone = () => {
-    const name = a.builtin ? `${a.name} 수정본` : `${a.name} 복제`;
+    const name = a.builtin ? `${a.name} ${tr('수정본', 'edited')}` : `${a.name} ${tr('복제', 'copy')}`;
     const made = addAlgorithm({name, code: (editor?.getValue() || a.code).replace(/^NAME = .*$/m, `NAME = '${name.replace(/'/g, '')}'`), base: a.builtin ? a.id : a.base});
     selectAlgorithm(made.id);  // it joins the next simulation, next to the original
     go('#/algorithms/' + made.id);
@@ -154,7 +171,7 @@ export function algorithmsView(root, {id, query}) {
     else if (act === 'clone') clone();
     else if (act === 'check') runCheck();
     else if (act === 'download') download((a.builtin ? a.id + (view === 'lite' ? '_lite' : '') : a.name.replace(/[^\w가-힣-]+/g, '_')) + '.py', editor.getValue(), 'text/x-python');
-    else if (act === 'delete' && confirm(`‘${a.name}’ 알고리즘을 삭제할까요? 이 브라우저에서만 삭제돼요.`)) { removeAlgorithm(a.id); go('#/algorithms'); }
+    else if (act === 'delete' && confirm(EN ? `Delete the ‘${a.name}’ algorithm? It is deleted from this browser only.` : `‘${a.name}’ 알고리즘을 삭제할까요? 이 브라우저에서만 삭제돼요.`)) { removeAlgorithm(a.id); go('#/algorithms'); }
   });
   const off = subscribe(kind => {
     if (kind === 'activity') { result(); return; }
@@ -170,5 +187,5 @@ export function algorithmsView(root, {id, query}) {
 
 function sparkline(values, w = 560, h = 72) {
   const lo = Math.min(...values), hi = Math.max(...values), X = i => i / (values.length - 1) * w, Y = v => 4 + (1 - (v - lo) / (hi - lo || 1)) * (h - 8);
-  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="spark-svg" role="img" aria-label="loss 추이"><path d="${values.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join('')}" fill="none" stroke="#4d8dff" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="spark-axis"><span>${fix(values[0], 4)}</span><span>${fix(values.at(-1), 4)}</span></div>`;
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="spark-svg" role="img" aria-label="${tr('loss 추이', 'loss over time')}"><path d="${values.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join('')}" fill="none" stroke="#4d8dff" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="spark-axis"><span>${fix(values[0], 4)}</span><span>${fix(values.at(-1), 4)}</span></div>`;
 }

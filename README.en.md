@@ -1,24 +1,24 @@
-<a href="https://uplift-lab.vercel.app"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/banner.png" alt="upliftlab. Same budget, models race. Final standings of the Criteo example: Duality R-Learner 786, R-Learner 783, X-Learner 759, T-Learner 757, DML 699, Random 459 incremental visits. Photo finish: ranks 1 to 5 are within the 95% CI of each other, and all beat Random."></a>
+<a href="https://upliftlab.dev"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/banner.png" alt="upliftlab. Same budget, models race. Final standings of the Criteo example: Duality R-Learner 786, R-Learner 783, X-Learner 759, T-Learner 757, DML 699, Random 459 incremental visits. Photo finish: ranks 1 to 5 are within the 95% CI of each other, and all beat Random."></a>
 
 <div align="center">
 
 **Find the uplift model that buys the most incremental outcome for the same budget, before it goes live.**
 
-[![Live demo](https://img.shields.io/badge/demo-uplift--lab.vercel.app-4d8dff?style=flat-square)](https://uplift-lab.vercel.app)
+[![Live demo](https://img.shields.io/badge/demo-upliftlab.dev-4d8dff?style=flat-square)](https://upliftlab.dev)
 [![PyPI](https://img.shields.io/pypi/v/upliftlab?style=flat-square&color=11141a&label=pypi)](https://pypi.org/project/upliftlab/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/Funbucket/upliftlab/test.yml?branch=main&style=flat-square&label=tests)](https://github.com/Funbucket/upliftlab/actions/workflows/test.yml)
 [![Built on EconML](https://img.shields.io/badge/built%20on-EconML-11141a?style=flat-square)](https://github.com/py-why/EconML)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-11141a?style=flat-square)](https://github.com/Funbucket/upliftlab/blob/main/pyproject.toml)
 [![MIT License](https://img.shields.io/badge/license-MIT-11141a?style=flat-square)](https://github.com/Funbucket/upliftlab/blob/main/LICENSE)
 
-**[Run it in the browser →](https://uplift-lab.vercel.app)** &nbsp;·&nbsp; [Install](#quick-start) &nbsp;·&nbsp; [한국어](https://github.com/Funbucket/upliftlab/blob/main/README.md)
+**[Run it in the browser →](https://upliftlab.dev)** &nbsp;·&nbsp; [Install](#quick-start) &nbsp;·&nbsp; [한국어](https://github.com/Funbucket/upliftlab/blob/main/README.md)
 
 <sub>The standings above are a real run: the Criteo ad experiment (199,837 users), a 40% budget, 8 cycles, EconML models. The site replays it cycle by cycle.</sub>
 
 </div>
 
 > [!NOTE]
-> The web interface and the guides are in Korean for now. The command line, this README and the algorithm contract below are enough to use upliftlab in English.
+> The interface follows your browser language (Korean or English); switch with **KO / EN** in the header or open [upliftlab.dev/?lang=en](https://upliftlab.dev/?lang=en). The longer guides in `docs/` are in Korean for now.
 
 ## Why
 
@@ -33,7 +33,7 @@ In a synthetic coupon market where cost differs by user, the Qini winner bought 
 
 ## Quick start
 
-**In the browser, nothing to install.** Open [uplift-lab.vercel.app](https://uplift-lab.vercel.app) and press `비교 시작` (start). The Criteo data, six built-in models and a 40% budget are preselected.
+**In the browser, nothing to install.** Open [upliftlab.dev](https://upliftlab.dev/?lang=en) and press **Start**. The Criteo data, six built-in models and a 40% budget are preselected.
 
 **Locally, with EconML.** The same screen, served from your own Python. Use large files, the libraries you already have, and your GPU.
 
@@ -55,7 +55,7 @@ upliftlab run --data my_experiment.csv --algorithm my_model.py
 
 ## Reading the result
 
-<a href="https://uplift-lab.vercel.app"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/verdict.png" alt="The result screen: a photo finish, but far ahead of the baseline. +71% incremental visits over Random, the gap to the leader with 95% CIs, and the standings."></a>
+<a href="https://upliftlab.dev"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/verdict.png" alt="The result screen: a photo finish, but far ahead of the baseline. +71% incremental visits over Random, the gap to the leader with 95% CIs, and the standings."></a>
 
 - **The headline is the conclusion.** If the runner-up is within the 95% CI of the leader it reads `결승선은 박빙` (photo finish), and it says whether the gap to the baseline (Random) is real.
 - **Over Random**: how much more incremental outcome the leader bought than random targeting with the same budget.

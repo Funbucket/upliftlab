@@ -6,6 +6,8 @@ import hashlib
 
 import numpy as np
 
+from .i18n import tr
+
 REDEEM = 0.85
 
 
@@ -55,7 +57,7 @@ class SyntheticScenario:
 
     def __init__(self, preset='base', seed=42, pool=20000, cycles=8):
         if preset not in self.PRESETS:
-            raise ValueError(f'알 수 없는 합성 시나리오예요: {preset}')
+            raise ValueError(tr(f'알 수 없는 합성 시나리오예요: {preset}', f'Unknown synthetic scenario: {preset}'))
         self.preset, self.seed, self.pool, self.cycles = preset, seed, int(pool), int(cycles)
         self.levels = self.LEVELS.get(preset, self.SINGLE)
         self.treatments = len(self.levels['cost'])
@@ -116,7 +118,7 @@ class ReplayScenario:
         self.cycles = int(max(1, min(cycles, n // 400)))
         self.pool = int(min(pool, n // self.cycles))
         if self.pool < 200:
-            raise ValueError('행이 너무 적어요. 사이클마다 최소 200행이 필요해요.')
+            raise ValueError(tr('행이 너무 적어요. 사이클마다 최소 200행이 필요해요.', 'Too few rows: each cycle needs at least 200.'))
         self.order = np.random.default_rng(seed_of(seed, 'replay', data.fingerprint)).permutation(n)
         self.treatments = int(data.t.max())
         self.propensity = float((data.t > 0).mean())

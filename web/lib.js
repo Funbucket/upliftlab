@@ -1,17 +1,18 @@
 // Small helpers shared by every view.
+import {EN, LOCALE, tr} from './i18n.js?v=0.26.5';
 export const $ = (selector, el = document) => el.querySelector(selector);
 export const $$ = (selector, el = document) => [...el.querySelectorAll(selector)];
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 export const isNum = v => typeof v === 'number' && Number.isFinite(v);
 // A value that rounds to zero has no sign: 0%, not −0%.
 const signed = (v, d, unit) => { const text = Math.abs(v * 100).toFixed(d); return `${Number(text) === 0 ? '' : v < 0 ? '−' : '+'}${text}${unit}`; };
-export const int = v => (isNum(v) ? Math.round(v).toLocaleString('ko-KR') : '—');
+export const int = v => (isNum(v) ? Math.round(v).toLocaleString(LOCALE) : '—');
 export const fix = (v, d = 2) => (isNum(v) ? (v < 0 ? '−' : '') + Math.abs(v).toFixed(d) : '—');
 export const pct = (v, d = 0) => (isNum(v) ? signed(v, d, '%') : '—');
-export const pp = (v, d = 0) => (isNum(v) ? signed(v, d, '%p') : '—');
+export const pp = (v, d = 0) => (isNum(v) ? signed(v, d, EN ? 'pp' : '%p') : '—');
 export const share = v => (isNum(v) ? `${Math.round(v * 100)}%` : '—');
-export const duration = v => (!isNum(v) ? '—' : v < 1 ? '<1ms' : v < 1000 ? `${Math.round(v)}ms` : `${(v / 1000).toFixed(1)}초`);
-export const when = t => new Date(t).toLocaleString('ko-KR', {month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'});
+export const duration = v => (!isNum(v) ? '—' : v < 1 ? '<1ms' : v < 1000 ? `${Math.round(v)}ms` : `${(v / 1000).toFixed(1)}${tr('초', 's')}`);
+export const when = t => new Date(t).toLocaleString(LOCALE, {month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'});
 
 // Categorical slots in fixed order, stepped for the dark surface (#0b0d11): OKLCH L 0.48–0.67, ≥ 3:1 contrast, worst adjacent
 // CVD ΔE 8.4 and normal-vision ΔE 19.3, checked with the dataviz palette validator.
@@ -30,7 +31,18 @@ const CASE = {
   uber: ['Uber', 'https://arxiv.org/abs/2004.09702'], bookingRoi: ['Booking.com', 'https://arxiv.org/abs/2008.06293'], bookingKnapsack: ['Booking.com', 'https://arxiv.org/abs/2108.13298'],
   kuaishou: ['Kuaishou', 'https://arxiv.org/abs/2201.12585'], meituan: ['Meituan', 'https://arxiv.org/abs/2407.13664'], doordash: ['DoorDash', 'https://causal-machine-learning.github.io/kdd2025-workshop/papers/16.pdf'],
 };
-export const SELECTION = {
+export const SELECTION = EN ? {
+  budget: {name: 'Budget · by score', who: [CASE.uber], rule: 'Adds users in score order and stops just before the expected incremental cost passes the budget. Everyone spends the same budget, so the rank is the incremental outcome.',
+    how: 'Sorts the remaining candidates by model score and selects up to just before the budget runs out. The budget is the same, so the number selected differs by algorithm.'},
+  quantile: {name: 'Top q%', who: [CASE.uber], rule: 'Selects the top share by model score. Everyone selects as many users, so the rank is the efficiency gain.',
+    how: 'Sorts the remaining candidates by model score and selects the top q%.'},
+  knapsack: {name: 'Budget · Knapsack', who: [CASE.meituan, CASE.kuaishou, CASE.bookingKnapsack], rule: 'Selects users whose effect − λ·cost is positive, with λ set to meet the budget. It also picks the treatment. Everyone spends the same budget, so the rank is the incremental outcome.',
+    how: 'Selects the remaining candidates whose effect − λ·cost is positive, with λ set to meet the budget. The budget is the same, so the number selected differs by algorithm.'},
+  roi: {name: 'Efficiency floor · ROI', who: [CASE.bookingRoi, CASE.doordash], rule: 'Adds users by effect ÷ cost and stops at the last user that keeps the expected cost effectiveness above the floor. Algorithms that meet the floor rank first, then by incremental outcome.',
+    how: 'Adds the remaining candidates by effect ÷ cost and stops at the last user that keeps the expected cost effectiveness above the floor. The number selected differs by algorithm.'},
+  validation: {name: 'Best share on validation', who: [CASE.doordash], rule: 'Selects up to the top share with the largest total incremental outcome on the validation rows. It ignores cost, so on data where most effects are positive it selects almost everyone.',
+    how: 'Sorts the remaining candidates by model score and selects up to the share with the largest total incremental outcome on the validation rows. The number selected differs by algorithm.'},
+} : {
   budget: {name: '예산 · 점수 순', who: [CASE.uber], rule: '모델 점수 순으로 사용자를 더하다가 예상 증분 비용이 예산을 넘기 직전에 멈춰요. 사용 예산이 같으므로 증분 성과로 순위를 매겨요.',
     how: '남은 후보를 모델 점수로 정렬해 예산을 넘기 직전까지 선정해요. 사용 예산이 같으므로 선정 인원은 알고리즘마다 달라요.'},
   quantile: {name: '상위 q%', who: [CASE.uber], rule: '모델 점수 상위 비율을 선정해요. 선정 인원이 같으므로 효율 개선으로 순위를 매겨요.',
@@ -45,15 +57,22 @@ export const SELECTION = {
 // One short label for a run or a draft: "q 40%", "예산 40%", ...
 export function selectionLabel(c) {
   const mode = c.mode || 'quantile';
-  if (mode === 'budget') return `예산 ${share(c.budget)}`;
-  if (mode === 'knapsack') return `Knapsack 예산 ${share(c.budget)}`;
-  if (mode === 'roi') return `효율 기준 +${share(c.efficiency ?? .2)}`;
-  if (mode === 'validation') return 'validation 최적 비율';
+  if (mode === 'budget') return `${tr('예산', 'Budget')} ${share(c.budget)}`;
+  if (mode === 'knapsack') return `Knapsack ${tr('예산', 'budget')} ${share(c.budget)}`;
+  if (mode === 'roi') return `${tr('효율 기준', 'Efficiency floor')} +${share(c.efficiency ?? .2)}`;
+  if (mode === 'validation') return tr('validation 최적 비율', 'Best share on validation');
   return `q ${share(c.target)}`;
 }
 
 // What each built-in ranks by. The code page has the full description.
-export const BRIEF = {
+export const BRIEF = EN ? {
+  random_baseline: 'Random order. The baseline',
+  x_learner: 'By CATE from two effect models weighted by the propensity. Ignores cost',
+  t_learner: 'By the difference of treatment and control models (CATE). Ignores cost',
+  r_learner: 'By CATE from residual regression. Ignores cost',
+  dml: 'By CATE from the residuals of Y and T. Ignores cost',
+  duality_r_learner: 'By incremental outcome − λ·incremental cost. Uses cost',
+} : {
   random_baseline: '무작위 정렬. 비교 기준선',
   x_learner: '두 효과 모델을 propensity로 가중한 CATE 순. 비용 미반영',
   t_learner: '처치군·대조군 모델의 예측 차이(CATE) 순. 비용 미반영',

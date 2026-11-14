@@ -1,13 +1,14 @@
 // App state: the engine, algorithms, datasets and runs. Views subscribe and re-render when something changes.
-import {ENGINE_FILES} from './engine-files.js?v=0.26.4';
-import {CATALOG, EXAMPLE} from './catalog.js?v=0.26.4';
-import {createRuntime} from './runtime.js?v=0.26.4';
-import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.26.4';
+import {ENGINE_FILES} from './engine-files.js?v=0.26.5';
+import {CATALOG, EXAMPLE} from './catalog.js?v=0.26.5';
+import {createRuntime} from './runtime.js?v=0.26.5';
+import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.26.5';
+import {EN, lang, tr} from './i18n.js?v=0.26.5';
 
 const USER_KEY = 'upliftlab.algorithms.v15', RUN_KEY = 'upliftlab.runs.v16', DRAFT_KEY = 'upliftlab.draft.v22', MAX_RUNS = 12, KEEP_TRACES = 3;
 const SETTINGS = {mode: 'quantile', budget: .4, efficiency: .2, baseLearner: 'ridge'};  // results made before these settings existed used these values
 const listeners = new Set();
-export const state = {engine: {status: 'loading', text: '엔진을 준비하고 있어요', kind: null, info: null, loading: ''}, algorithms: [], datasets: [], runs: [], live: null, activity: null, draft: null};
+export const state = {engine: {status: 'loading', text: tr('엔진을 준비하고 있어요', 'Starting the engine'), kind: null, info: null, loading: ''}, algorithms: [], datasets: [], runs: [], live: null, activity: null, draft: null};
 export const EXAMPLE_RUN = {...EXAMPLE, id: 'example', example: true, status: 'done'};
 let runtime = null, frame = 0, resolveReady, rejectReady, librariesLoaded = false;
 const engineReady = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
@@ -19,23 +20,44 @@ function emitSoon(kind) { if (!frame) frame = requestAnimationFrame(() => { fram
 export const call = (method, payload = {}) => engineReady.then(() => runtime.call(method, payload));
 
 // ---------- algorithms ----------
+// English text for what the catalog and the engine describe in Korean: the public dataset, the built-ins and the templates.
+const DATASET_EN = {
+  'public/criteo': {name: 'Criteo ad experiment', summary: 'A 100k treated + 100k control sample from the randomized ad experiment Criteo published, 13.98M users in all. The outcome is a site visit after the ad.',
+    license: 'CC BY-NC-SA 4.0 · non-commercial use, with attribution. The sample lives on the website and in the GitHub repository; the pip package downloads it once on first use.',
+    treatment: 'shown the ad = 1, control = 0', outcome: 'visit · site visit (0/1)', cost: 'no column · 1 per treatment'},
+};
+const ALGORITHM_EN = {
+  random_baseline: 'Ranks by a random score. The baseline; its Cost Curve sits near the diagonal.',
+  x_learner: 'Imputes each user’s effect with outcome models of treatment and control, then averages the two effect models weighted by the propensity (X-Learner). Ignores cost.',
+  t_learner: 'Fits separate outcome models to treatment and control and uses the difference of their predictions as the CATE (T-Learner). Ignores cost.',
+  r_learner: 'Learns the CATE from the residuals of outcome and treatment (R-Learner). Ignores cost.',
+  dml: 'Cross-fits the residuals of Y and T and estimates the CATE from their relationship (Double Machine Learning). Ignores cost.',
+  duality_r_learner: 'Learns the CATE of outcome and of cost with R-Learners and ranks by τ̂ʳ − λ·τ̂ᶜ, with λ chosen for the best validation AUCC.',
+};
+const TEMPLATE_EN = {
+  start_sklearn: {name: 'scikit-learn T-Learner', summary: 'The lightest starting point: a scikit-learn Ridge T-Learner that estimates incremental outcome and incremental cost and ranks by outcome − λ·cost.'},
+  start_lightgbm: {name: 'LightGBM T-Learner', summary: 'A T-Learner with tree models that learn non-linear covariate effects. Its four models each stop early on validation, and it ranks by outcome − λ·cost.'},
+  start_pytorch: {name: 'PyTorch ranking model', summary: 'A PyTorch ranking model that directly minimizes incremental cost ÷ incremental outcome. autograd computes the gradients, and it runs on the GPU when there is one.'},
+};
+const english = (map, x) => (EN && map[x.id] ? {...x, ...map[x.id]} : x);
+
 function initAlgorithms() {
-  const builtins = CATALOG.algorithms.map(a => ({...a, code: ENGINE_FILES[a.file], builtin: true, ok: true}));
+  const builtins = CATALOG.algorithms.map(a => ({...a, ...(EN && ALGORITHM_EN[a.id] ? {summary: ALGORITHM_EN[a.id]} : {}), code: ENGINE_FILES[a.file], builtin: true, ok: true}));
   const users = load(USER_KEY, []).filter(a => a && typeof a.id === 'string' && typeof a.code === 'string')
-    .map(a => ({id: a.id, name: a.name || '내 알고리즘', code: a.code, base: a.base || null, builtin: false, summary: '', ok: null}));
+    .map(a => ({id: a.id, name: a.name || tr('내 알고리즘', 'My algorithm'), code: a.code, base: a.base || null, builtin: false, summary: '', ok: null}));
   state.algorithms = [...builtins, ...users];
 }
 export const algorithm = id => state.algorithms.find(a => a.id === id);
 // Starting files for a new algorithm (scikit-learn, LightGBM, PyTorch). Their code ships with the engine files.
-export const templates = () => (state.engine.info?.templates || CATALOG.templates).map(t => ({...t, code: ENGINE_FILES[t.file]}));
+export const templates = () => (state.engine.info?.templates || CATALOG.templates).map(t => ({...english(TEMPLATE_EN, t), code: ENGINE_FILES[t.file]}));
 // Why an algorithm cannot run here: a library this runtime does not have. Null when it can.
 export function unavailable(a) {
   const gone = (a.libraries || []).filter(l => ['missing', 'failed', 'local'].includes(l.status));
   if (!gone.length) return null;
   const names = gone.map(l => l.package).join(', ');
-  if (state.engine.kind === 'local') return {short: '설치 필요', text: `${names} 미설치 · pip install ${gone.map(l => l.package).join(' ')}`};
-  return gone.some(l => l.status === 'local') ? {short: '로컬 실행 필요', text: `${names} · 브라우저용 빌드가 없어 로컬에서 실행해요`}
-    : {short: '라이브러리 없음', text: `${names} 미설치 · PyPI 패키지라면 파일 맨 위 # /// script 블록에 적어 주세요`};
+  if (state.engine.kind === 'local') return {short: tr('설치 필요', 'Install needed'), text: `${names} ${tr('미설치', 'not installed')} · pip install ${gone.map(l => l.package).join(' ')}`};
+  return gone.some(l => l.status === 'local') ? {short: tr('로컬 실행 필요', 'Run locally'), text: `${names} · ${tr('브라우저용 빌드가 없어 로컬에서 실행해요', 'no browser build, so it runs in the local edition')}`}
+    : {short: tr('라이브러리 없음', 'Library missing'), text: `${names} ${tr('미설치 · PyPI 패키지라면 파일 맨 위 # /// script 블록에 적어 주세요', 'not installed · if it is on PyPI, list it in a # /// script block at the top of the file')}`};
 }
 const saveUsers = () => save(USER_KEY, state.algorithms.filter(a => !a.builtin).map(({id, name, code, base}) => ({id, name, code, base})));
 export function addAlgorithm({name, code, base = null}) {
@@ -59,7 +81,7 @@ async function check(a) {
   emit('algorithms');
 }
 export async function quickCheck(a) {
-  if (state.activity) throw new Error('다른 검사가 실행 중이에요.');
+  if (state.activity) throw new Error(tr('다른 검사가 실행 중이에요.', 'Another check is running.'));
   state.activity = {method: 'try_algorithm', id: a.id, trace: []}; emit('activity');
   try {
     const out = await call('try_algorithm', {code: a.code, id: a.id, name: a.name}).catch(error => ({ok: false, error: error.message}));
@@ -89,7 +111,7 @@ async function idb(mode, fn, fallback) {
 }
 const meta = rec => ({id: rec.id, name: rec.name, mapping: rec.mapping, profile: rec.profile, createdAt: rec.createdAt, local: !!rec.local});
 async function initDatasets() {
-  state.datasets = CATALOG.datasets.map(d => ({...d, stored: null}));
+  state.datasets = CATALOG.datasets.map(d => ({...english(DATASET_EN, d), stored: null}));
   for (const rec of await idb('readonly', s => s.getAll(), () => [...memory.values()]) || []) placeDataset(meta(rec));
 }
 function placeDataset(m) {
@@ -126,7 +148,7 @@ export async function removeDataset(id) {
 // served by the local edition, so both start from the same rows. It is kept in memory only; the browser caches the file.
 async function loadBundled(d) {
   const res = await fetch('./' + d.bundled);
-  if (!res.ok) throw new Error(`‘${d.name}’ 파일을 불러오지 못했어요 (${res.status}).`);
+  if (!res.ok) throw new Error(tr(`‘${d.name}’ 파일을 불러오지 못했어요 (${res.status}).`, `Could not load ‘${d.name}’ (${res.status}).`));
   let bytes = new Uint8Array(await res.arrayBuffer());
   if (bytes[0] === 0x1f && bytes[1] === 0x8b) bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());  // a server may already have unzipped it
   const out = await call('add_dataset', {id: d.id, csv: new TextDecoder().decode(bytes), name: d.name, mapping: d.mapping});
@@ -135,13 +157,13 @@ async function loadBundled(d) {
 }
 export async function ensureDataset(id) {
   const d = dataset(id);
-  if (!d) throw new Error('데이터를 찾을 수 없어요.');
+  if (!d) throw new Error(tr('데이터를 찾을 수 없어요.', 'Data not found.'));
   if (d.kind === 'synthetic' || loaded.has(id)) return;
   if (d.bundled) { await (d.loading ||= loadBundled(d).finally(() => { d.loading = null; })); return; }
   const rec = await idb('readonly', s => s.get(id), () => memory.get(id));
   if (rec?.csv) await call('add_dataset', {id, csv: rec.csv, name: rec.name, mapping: rec.mapping});
   else if (d.kind === 'public' && state.engine.kind === 'local') await fetchPublic(id);
-  else throw new Error(`‘${d.name}’ 데이터셋을 먼저 업로드해 주세요.`);
+  else throw new Error(tr(`‘${d.name}’ 데이터셋을 먼저 업로드해 주세요.`, `Upload the ‘${d.name}’ dataset first.`));
   loaded.add(id);
 }
 export async function profileOf(id) {
@@ -156,10 +178,12 @@ export async function profileOf(id) {
 // Names of the outcome and cost for a dataset, used in column headers and metric labels.
 export function wordsFor(id) {
   const d = dataset(id);
-  if (d?.kind === 'synthetic' || String(id).startsWith('synthetic/')) return {data: d?.name || '합성 쿠폰 실험', outcome: '리텐션', incR: '증분 리텐션', unit: '명', cost: '보상 비용', binary: true};  // runs saved before the synthetic data left the list
-  if (d?.id === 'public/criteo') return {data: d.name, outcome: '방문', incR: '증분 방문', unit: '명', cost: '광고 대상 인원', binary: true};
-  const m = d?.stored?.mapping, outcome = m?.outcome || '결과';
-  return {data: d?.name || id || '데이터', outcome, incR: `증분 ${outcome}`, unit: '', cost: m ? m.cost || '처치 건수' : '비용', binary: false};
+  if (d?.kind === 'synthetic' || String(id).startsWith('synthetic/')) return EN ? {data: 'Synthetic coupon experiment', outcome: 'retention', incR: 'incremental retention', unit: '', cost: 'reward cost', binary: true}  // runs saved before the synthetic data left the list
+    : {data: d?.name || '합성 쿠폰 실험', outcome: '리텐션', incR: '증분 리텐션', unit: '명', cost: '보상 비용', binary: true};
+  if (d?.id === 'public/criteo') return EN ? {data: 'Criteo ad experiment', outcome: 'visits', incR: 'incremental visits', unit: '', cost: 'users shown the ad', binary: true}
+    : {data: d.name, outcome: '방문', incR: '증분 방문', unit: '명', cost: '광고 대상 인원', binary: true};
+  const m = d?.stored?.mapping, outcome = m?.outcome || tr('결과', 'outcome');
+  return {data: d?.name || id || tr('데이터', 'data'), outcome, incR: tr(`증분 ${outcome}`, `incremental ${outcome}`), unit: '', cost: m ? m.cost || tr('처치 건수', 'treatments') : tr('비용', 'cost'), binary: false};
 }
 
 // ---------- the comparison being set up: kept across pages, so editing code and coming back loses nothing ----------
@@ -206,7 +230,7 @@ export const running = () => ['starting', 'running', 'paused'].includes(state.li
 export function deleteRun(id) { state.runs = state.runs.filter(r => r.id !== id); if (state.live?.id === id) state.live = null; saveRuns(); emit('runs'); }
 export function importRun(text, name) {
   const data = JSON.parse(text);
-  if (data.format !== 'upliftlab.run/1' || !data.plan || !Array.isArray(data.cycles) || !data.summary) throw new Error('upliftlab 결과 JSON이 아니에요.');
+  if (data.format !== 'upliftlab.run/1' || !data.plan || !Array.isArray(data.cycles) || !data.summary) throw new Error(tr('upliftlab 결과 JSON이 아니에요.', 'This is not an upliftlab result JSON.'));
   const run = {id: 'file-' + Date.now().toString(36), createdAt: Date.now(), imported: name, status: 'done', plan: data.plan, cycles: data.cycles, summary: data.summary,
     config: {dataset: data.plan.dataset, algorithms: data.plan.algorithms.map(a => a.id), cycles: data.plan.cycles, explore: data.plan.explore, target: data.plan.target, seed: data.plan.seed, mode: data.plan.mode, budget: data.plan.budget, efficiency: data.plan.efficiency, baseLearner: data.plan.baseLearner}};
   state.runs.unshift(run); saveRuns(); emit('runs');
@@ -225,7 +249,7 @@ export function estimate(config) {
 }
 
 export async function startRun(config) {
-  if (running()) throw new Error('이미 실행 중인 시뮬레이션이 있어요.');
+  if (running()) throw new Error(tr('이미 실행 중인 시뮬레이션이 있어요.', 'A simulation is already running.'));
   const algorithms = config.algorithms.map(algorithm).filter(Boolean).slice(0, MAX_ALGORITHMS);
   const run = {id: 'run-' + Date.now().toString(36), createdAt: Date.now(), config, plan: null, cycles: [], summary: null, status: 'starting', progress: {}, current: null, error: null};
   state.live = run; emit('run');
@@ -270,17 +294,24 @@ function onProgress(data, active) {
 
 export async function boot() {
   initAlgorithms(); initRuns();
-  await initDatasets().catch(() => {});
+  // Find out first whether this is the local edition (one quick request), so the first screen already knows: the local
+  // edition skips the introduction. The browser engine keeps loading in the background either way.
+  const made = createRuntime({onProgress, onStatus: text => { state.engine.text = text; emit('engine'); },
+    onLoading: text => { state.engine.loading = text; emit('loading'); }});
+  made.then(r => { state.engine.kind = r.kind; }, () => {});
+  await Promise.all([initDatasets().catch(() => {}), made.catch(() => {})]);
+  const early = await made.catch(() => null);
+  if (early?.kind === 'local') state.engine.info = await early.ready;  // already known from the probe, so no wait
   initDraft();
   emit('init');
   try {
-    runtime = await createRuntime({onProgress, onStatus: text => { state.engine.text = text; emit('engine'); },
-      onLoading: text => { state.engine.loading = text; emit('loading'); }});
+    runtime = await made;
     state.engine.kind = runtime.kind;
     const info = await runtime.ready;
+    if (info.languages?.includes(lang)) await runtime.call('set_lang', {lang}).catch(() => {});  // engine messages (errors, data checks) in the screen's language
     state.engine = {status: 'ready', kind: runtime.kind, info, text: '', loading: ''};
     // The engine says which files its built-ins are: EconML where it is installed (local), the scikit-learn lite files in the browser.
-    for (const b of info.algorithms || []) { const a = algorithm(b.id); if (a?.builtin) Object.assign(a, {libraries: b.libraries, code: b.code, file: b.file, summary: b.summary, implementation: b.implementation}); }
+    for (const b of info.algorithms || []) { const a = algorithm(b.id); if (a?.builtin) Object.assign(a, {libraries: b.libraries, code: b.code, file: b.file, summary: EN && ALGORITHM_EN[b.id] ? ALGORITHM_EN[b.id] : b.summary, implementation: b.implementation}); }
     resolveReady();
     for (const a of state.algorithms) if (!a.builtin) check(a);
   } catch (error) {

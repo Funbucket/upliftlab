@@ -9,7 +9,8 @@ from pathlib import Path
 
 import numpy as np
 
-from . import __version__, contract, datasets
+from . import __version__, contract, datasets, i18n
+from .i18n import tr
 from .algorithms import ORDER
 from .arena import Run, quick_check
 from .scenario import ReplayScenario, SyntheticScenario
@@ -72,7 +73,12 @@ def templates():
 def info():
     return {'engine': __version__, 'python': platform.python_version(), 'numpy': np.__version__, 'runtime': state['runtime'],
             'device': state['device'], 'devices': state['devices'], 'implementation': implementation(), 'algorithms': builtins(), 'templates': templates(),
-            'libraries': contract.libraries(contract.COMMON), 'datasets': datasets.catalog()}
+            'libraries': contract.libraries(contract.COMMON), 'datasets': datasets.catalog(), 'languages': list(i18n.LANGS)}
+
+
+def set_lang(lang):
+    """The screen's language for the messages that follow (errors, data checks)."""
+    return {'lang': i18n.set_lang(lang)}
 
 
 def check(code, id='algorithm'):
@@ -133,7 +139,7 @@ def sample_csv():
 def fetch_dataset(id):
     """Local edition: a bundled sample. The browser fetches the same file itself and passes it to add_dataset."""
     if state['runtime'] != 'local':
-        raise ValueError('원본 사이트가 브라우저 다운로드를 막고 있어요. 파일을 받아 업로드하거나 로컬에서 실행해 주세요.')
+        raise ValueError(tr('원본 사이트가 브라우저 다운로드를 막고 있어요. 파일을 받아 업로드하거나 로컬에서 실행해 주세요.', 'The source site blocks browser downloads. Download the file and upload it, or run locally.'))
     meta = next(d for d in datasets.PUBLIC if d['id'] == id)
     return add_dataset(id, datasets.fetch(id), meta['name'], meta.get('mapping'))
 
@@ -154,7 +160,7 @@ def run_start(dataset, algorithms, cycles=8, explore=.2, target=.4, seed=42, win
     elif dataset in state['data']:
         scenario = ReplayScenario(state['data'][dataset], seed=seed, cycles=cycles)
     else:
-        raise LookupError(f'데이터를 먼저 불러와 주세요: {dataset}')
+        raise LookupError(tr(f'데이터를 먼저 불러와 주세요: {dataset}', f'Load the data first: {dataset}'))
     for a in algorithms:  # a file that cannot even load (a missing library, a syntax error) stops the run before it starts
         try:
             contract.load(a['code'], f"{a['id']}.py")
@@ -168,7 +174,7 @@ def run_start(dataset, algorithms, cycles=8, explore=.2, target=.4, seed=42, win
 
 def run_cycle():
     if state['run'] is None:
-        raise ValueError('시작한 실행이 없어요.')
+        raise ValueError(tr('시작한 실행이 없어요.', 'No run has started.'))
     return state['run'].step(report)
 
 
@@ -185,7 +191,7 @@ def run_all(dataset, algorithms, cycles=8, explore=.2, target=.4, seed=42, mode=
     return clean(record(plan, out))
 
 
-METHODS = {f.__name__: f for f in (info, check, requirements, try_algorithm, inspect_csv, add_dataset, sample_csv, fetch_dataset, describe_dataset, run_start, run_cycle, run_all)}
+METHODS = {f.__name__: f for f in (info, set_lang, check, requirements, try_algorithm, inspect_csv, add_dataset, sample_csv, fetch_dataset, describe_dataset, run_start, run_cycle, run_all)}
 
 
 def call(method, payload='{}'):

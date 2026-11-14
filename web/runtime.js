@@ -1,5 +1,6 @@
 // One call interface, two places to run the Python engine: the browser (Pyodide worker) or the local edition server.
-import {ENGINE_FILES} from './engine-files.js?v=0.26.4';
+import {ENGINE_FILES} from './engine-files.js?v=0.26.5';
+import {tr} from './i18n.js?v=0.26.5';
 
 export const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/';
 const WORKER = `
@@ -26,10 +27,10 @@ self.onmessage = async ({data}) => {
   const {id, method, payload} = data;
   try {
     if (method === '__init__') {
-      self.postMessage({type: 'status', text: 'Python 런타임을 내려받고 있어요'});
+      self.postMessage({type: 'status', text: ${JSON.stringify(tr('Python 런타임을 내려받고 있어요', 'Downloading the Python runtime'))}});
       importScripts(payload.indexURL + 'pyodide.js');
       py = await loadPyodide({indexURL: payload.indexURL});
-      self.postMessage({type: 'status', text: 'NumPy를 불러오고 있어요'});
+      self.postMessage({type: 'status', text: ${JSON.stringify(tr('NumPy를 불러오고 있어요', 'Loading NumPy'))}});
       await py.loadPackage('numpy');
       for (const [file, source] of Object.entries(payload.files)) {
         const full = '/engine/' + file;
@@ -52,7 +53,7 @@ self.onmessage = async ({data}) => {
 function unwrap(text) {
   const out = typeof text === 'string' ? JSON.parse(text) : text;
   if (out.ok) return out.result;
-  const error = new Error(out.error || '엔진 오류'); error.trace = out.trace || ''; throw error;
+  const error = new Error(out.error || tr('엔진 오류', 'Engine error')); error.trace = out.trace || ''; throw error;
 }
 
 // Calls run strictly in order, so a progress event always belongs to the call at the head of the queue.
@@ -76,7 +77,7 @@ function browserRuntime(onProgress, onStatus, onLoading) {
     const done = waiting.get(data.id); waiting.delete(data.id);
     try { done.resolve(unwrap(data.response)); } catch (error) { done.reject(error); }
   };
-  worker.onerror = event => { for (const w of waiting.values()) w.reject(new Error(event.message || 'Python 워커 오류')); waiting.clear(); };
+  worker.onerror = event => { for (const w of waiting.values()) w.reject(new Error(event.message || tr('Python 워커 오류', 'Python worker error'))); waiting.clear(); };
   runtime = queue((method, payload) => new Promise((resolve, reject) => { const id = ++next; waiting.set(id, {resolve, reject}); worker.postMessage({id, method, payload}); }));
   runtime.kind = 'browser';
   runtime.ready = runtime.call('__init__', {indexURL: PYODIDE, files: ENGINE_FILES});
@@ -87,7 +88,7 @@ function localRuntime(info, onProgress) {
   let runtime;
   runtime = queue(async (method, payload) => {
     const response = await fetch('api/engine/' + method, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
-    if (!response.ok) throw new Error(`로컬 엔진 응답 ${response.status}`);
+    if (!response.ok) throw new Error(`${tr('로컬 엔진 응답', 'Local engine answered')} ${response.status}`);
     const reader = response.body.getReader(), decoder = new TextDecoder(); let buffer = '', result;
     for (;;) {
       const {value, done} = await reader.read();

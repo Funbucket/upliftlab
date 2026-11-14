@@ -1,17 +1,17 @@
-<a href="https://uplift-lab.vercel.app"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/banner.png" alt="upliftlab. 같은 예산을 주고, 모델끼리 겨뤄요. Criteo 예시의 최종 순위표: Duality R-Learner 786, R-Learner 783, X-Learner 759, T-Learner 757, DML 699, Random 459. 사진 판정: 1~5위 차이는 95% CI 안이고 Random과의 차이는 유의해요."></a>
+<a href="https://upliftlab.dev"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/banner.png" alt="upliftlab. 같은 예산을 주고, 모델끼리 겨뤄요. Criteo 예시의 최종 순위표: Duality R-Learner 786, R-Learner 783, X-Learner 759, T-Learner 757, DML 699, Random 459. 사진 판정: 1~5위 차이는 95% CI 안이고 Random과의 차이는 유의해요."></a>
 
 <div align="center">
 
 **같은 예산에서 증분 성과를 가장 많이 내는 uplift 모델을, 운영 전에 찾아요.**
 
-[![Live demo](https://img.shields.io/badge/demo-uplift--lab.vercel.app-4d8dff?style=flat-square)](https://uplift-lab.vercel.app)
+[![Live demo](https://img.shields.io/badge/demo-upliftlab.dev-4d8dff?style=flat-square)](https://upliftlab.dev)
 [![PyPI](https://img.shields.io/pypi/v/upliftlab?style=flat-square&color=11141a&label=pypi)](https://pypi.org/project/upliftlab/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/Funbucket/upliftlab/test.yml?branch=main&style=flat-square&label=tests)](https://github.com/Funbucket/upliftlab/actions/workflows/test.yml)
 [![Built on EconML](https://img.shields.io/badge/built%20on-EconML-11141a?style=flat-square)](https://github.com/py-why/EconML)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-11141a?style=flat-square)](https://github.com/Funbucket/upliftlab/blob/main/pyproject.toml)
 [![MIT License](https://img.shields.io/badge/license-MIT-11141a?style=flat-square)](https://github.com/Funbucket/upliftlab/blob/main/LICENSE)
 
-**[웹에서 바로 실행 →](https://uplift-lab.vercel.app)** &nbsp;·&nbsp; [로컬 설치](#빠른-시작) &nbsp;·&nbsp; [사용 안내](https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md) &nbsp;·&nbsp; [English](https://github.com/Funbucket/upliftlab/blob/main/README.en.md)
+**[웹에서 바로 실행 →](https://upliftlab.dev)** &nbsp;·&nbsp; [로컬 설치](#빠른-시작) &nbsp;·&nbsp; [사용 안내](https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md) &nbsp;·&nbsp; [English](https://github.com/Funbucket/upliftlab/blob/main/README.en.md)
 
 <sub>위 순위표는 Criteo 광고 실험 199,837명을 예산 40%, 8사이클로 돌린 실제 결과예요(EconML). 사이트에서는 사이클 1부터 8까지 다시 보여 줘요.</sub>
 
@@ -30,7 +30,7 @@ Qini가 가장 높은 모델이 운영에서도 가장 많이 남길까요? 오�
 
 ## 빠른 시작
 
-**웹 · 설치 없이.** [uplift-lab.vercel.app](https://uplift-lab.vercel.app)을 열고 `비교 시작`을 눌러요. Criteo 데이터, 기본 모델 6개, 예산 40%가 이미 골라져 있어요.
+**웹 · 설치 없이.** [upliftlab.dev](https://upliftlab.dev)을 열고 `비교 시작`을 눌러요. Criteo 데이터, 기본 모델 6개, 예산 40%가 이미 골라져 있어요.
 
 **로컬 · EconML로.** 같은 화면이 내 Python에서 돌아가요. 큰 데이터, 이미 설치한 라이브러리, GPU를 그대로 써요.
 
@@ -46,7 +46,7 @@ uv를 쓴다면 설치 없이 `uvx upliftlab` 한 줄이면 돼요. 처음 실�
 
 ## 결과 읽는 법
 
-<a href="https://uplift-lab.vercel.app"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/verdict.png" alt="결과 화면. 결승선은 박빙, 기준선과는 큰 차이. Random 대비 증분 방문 +71%, 1위와의 차이와 95% CI, P1~P5와 기준선 순위 카드"></a>
+<a href="https://upliftlab.dev"><img src="https://raw.githubusercontent.com/Funbucket/upliftlab/main/docs/images/verdict.png" alt="결과 화면. 결승선은 박빙, 기준선과는 큰 차이. Random 대비 증분 방문 +71%, 1위와의 차이와 95% CI, P1~P5와 기준선 순위 카드"></a>
 
 - **제목**이 결론이에요. 2위와의 차이가 95% CI 안이면 `결승선은 박빙`이라고 쓰고, 기준선(Random)과의 차이가 확실한지도 함께 적어요.
 - **Random 대비**는 1위가 무작위로 고를 때보다 같은 예산으로 성과를 얼마나 더 냈는지예요.

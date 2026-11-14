@@ -35,6 +35,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from .i18n import tr
+
 BROWSER = sys.platform == 'emscripten'
 # Import name → the package name to install, where they differ.
 PACKAGES = {'sklearn': 'scikit-learn', 'sklift': 'scikit-uplift', 'cv2': 'opencv-python', 'PIL': 'pillow', 'yaml': 'pyyaml',
@@ -46,7 +48,9 @@ PYODIDE = {'numpy': '2.0.2', 'scipy': '1.14.1', 'pandas': '2.2.3', 'sklearn': '1
 # Compiled libraries with no browser build and no pure-Python wheel: only the local edition can run them.
 LOCAL_ONLY = {'torch', 'tensorflow', 'jax', 'jaxlib', 'catboost', 'econml', 'causalml', 'cupy'}
 COMMON = ['numpy', 'scipy', 'pandas', 'sklearn', 'lightgbm', 'xgboost', 'statsmodels', 'torch']
-ENGINE = '알고리즘 파일에서는 upliftlab을 import할 수 없어요. 필요한 코드는 파일 안에 두거나 NumPy, scikit-learn 같은 라이브러리를 써 주세요.'
+def ENGINE():  # noqa: N802 (kept as the name callers know)
+    return tr('알고리즘 파일에서는 upliftlab을 import할 수 없어요. 필요한 코드는 파일 안에 두거나 NumPy, scikit-learn 같은 라이브러리를 써 주세요.',
+              'An algorithm file can’t import upliftlab. Keep the code it needs inside the file, or use libraries such as NumPy and scikit-learn.')
 BLOCK = re.compile(r'(?m)^# /// (?P<type>[a-zA-Z0-9-]+)$\s(?P<content>(^#(| .*)$\s)+)^# ///$')
 install_errors = {}  # package → why micropip could not install it (browser only)
 
@@ -162,12 +166,14 @@ def libraries(modules, requires=()):
 def missing(module):
     package = package_of(module)
     if BROWSER and module in LOCAL_ONLY:
-        return f'브라우저용 빌드가 없는 라이브러리예요 · {package}. 로컬(python -m upliftlab serve)에서 실행해 주세요.'
+        return tr(f'브라우저용 빌드가 없는 라이브러리예요 · {package}. 로컬(python -m upliftlab serve)에서 실행해 주세요.', f'No browser build of {package}. Run it in the local edition (python -m upliftlab serve).')
     if BROWSER:
         why = f' ({install_errors[package]})' if package in install_errors else ''
-        return (f'브라우저에 없는 라이브러리예요 · {package}{why}. PyPI의 순수 Python 패키지라면 파일 맨 위 # /// script 블록의 '
-                f'dependencies에 적어 주세요. 컴파일이 필요한 패키지는 로컬에서 실행해요.')
-    return f'설치되지 않은 라이브러리예요 · {package}. 실행 중인 Python 환경에서 pip install {package} 후 다시 검사해 주세요.'
+        return tr(f'브라우저에 없는 라이브러리예요 · {package}{why}. PyPI의 순수 Python 패키지라면 파일 맨 위 # /// script 블록의 '
+                  f'dependencies에 적어 주세요. 컴파일이 필요한 패키지는 로컬에서 실행해요.',
+                  f'{package} is not in the browser{why}. If it is a pure-Python package on PyPI, list it under dependencies in a # /// script '
+                  f'block at the top of the file. Packages that need compiling run in the local edition.')
+    return tr(f'설치되지 않은 라이브러리예요 · {package}. 실행 중인 Python 환경에서 pip install {package} 후 다시 검사해 주세요.', f'{package} is not installed. Run pip install {package} in the running Python, then check again.')
 
 
 def explain(error):
@@ -191,15 +197,15 @@ def line(error, filename):
 def load(code, filename='algorithm.py'):
     meta = describe(code, filename)
     if 'upliftlab' in meta['lines']:
-        raise ContractError(ENGINE, meta['lines']['upliftlab'])
+        raise ContractError(ENGINE(), meta['lines']['upliftlab'])
     namespace = {'__name__': 'algorithm'}
     exec(compile(code, filename, 'exec'), namespace)
     model_type = namespace.get('Model')
     if not inspect.isclass(model_type):
-        raise ContractError('class Model을 정의해 주세요.')
+        raise ContractError(tr('class Model을 정의해 주세요.', 'Define class Model.'))
     for method in ('fit', 'predict'):
         if not callable(getattr(model_type, method, None)):
-            raise ContractError(f'class Model에 {method}() 메서드가 필요해요.')
+            raise ContractError(tr(f'class Model에 {method}() 메서드가 필요해요.', f'class Model needs a {method}() method.'))
     return model_type, meta
 
 
@@ -225,7 +231,7 @@ def decide(model, X, treatments=1):
     eligible, arm, matrix = None, None, None
     if isinstance(out, dict):
         if 'score' not in out:
-            raise ValueError('predict(X)는 점수 배열이나 {"score": 배열}을 반환해야 해요.')
+            raise ValueError(tr('predict(X)는 점수 배열이나 {"score": 배열}을 반환해야 해요.', 'predict(X) must return a score array or {"score": array}.'))
         score, eligible, arm = out['score'], out.get('eligible'), out.get('arm')
     else:
         score = out
@@ -237,17 +243,18 @@ def decide(model, X, treatments=1):
         arm = score.argmax(1) + 1
         score = score.max(1)
     elif treatments > 1 and arm is None:
-        raise ValueError(f'이 데이터셋의 처치는 {treatments}종류예요. predict는 (행 수, {treatments}) 배열이나 {{"score": 배열, "arm": 처치 번호}}를 반환해야 해요.')
+        raise ValueError(tr(f'이 데이터셋의 처치는 {treatments}종류예요. predict는 (행 수, {treatments}) 배열이나 {{"score": 배열, "arm": 처치 번호}}를 반환해야 해요.',
+                            f'This dataset has {treatments} treatments. predict must return an (n, {treatments}) array or {{"score": array, "arm": treatment numbers}}.'))
     score = score.reshape(-1)
     if score.shape != (len(X),) or not np.isfinite(score).all():
-        raise ValueError('score는 입력 행 수와 같은 길이의 유한한 배열이어야 해요.')
+        raise ValueError(tr('score는 입력 행 수와 같은 길이의 유한한 배열이어야 해요.', 'score must be a finite array as long as the input.'))
     if eligible is not None:
         eligible = np.asarray(eligible)
         if eligible.shape != (len(X),) or eligible.dtype.kind != 'b':
-            raise ValueError('eligible은 입력 행 수와 같은 길이의 불리언 배열이어야 해요.')
+            raise ValueError(tr('eligible은 입력 행 수와 같은 길이의 불리언 배열이어야 해요.', 'eligible must be a boolean array as long as the input.'))
     arm = np.ones(len(X), dtype=np.int64) if arm is None else np.asarray(arm, dtype=np.int64).reshape(-1)
     if arm.shape != (len(X),) or arm.min() < 1 or arm.max() > treatments:
-        raise ValueError(f'arm은 입력 행 수와 같은 길이의 처치 번호(1~{treatments}) 배열이어야 해요.')
+        raise ValueError(tr(f'arm은 입력 행 수와 같은 길이의 처치 번호(1~{treatments}) 배열이어야 해요.', f'arm must be an array of treatment numbers (1–{treatments}) as long as the input.'))
     if matrix is None or not np.isfinite(matrix).all():
         matrix = np.full((len(X), treatments), -np.inf)
         matrix[np.arange(len(X)), arm - 1] = score

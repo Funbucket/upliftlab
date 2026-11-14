@@ -3,7 +3,7 @@ import json
 import sys
 from pathlib import Path
 
-parser = argparse.ArgumentParser(prog='upliftlab', description='upliftlab local edition: the same UI and engine as uplift-lab.vercel.app, on your own Python. Run it with no command to open the UI.')
+parser = argparse.ArgumentParser(prog='upliftlab', description='upliftlab local edition: the same UI and engine as upliftlab.dev, on your own Python. Run it with no command to open the UI.')
 sub = parser.add_subparsers(dest='command', metavar='{serve,run,check}')
 web = sub.add_parser('serve', help='open the web UI on localhost and run the engine natively (the default)')
 web.add_argument('--host', default='127.0.0.1')

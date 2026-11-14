@@ -1,5 +1,6 @@
 // SVG line charts with one y-axis, a recessive grid, 2px lines and a crosshair tooltip that lists every series.
-import {esc, isNum, int, pp} from './lib.js?v=0.26.4';
+import {esc, isNum, int, pp} from './lib.js?v=0.26.5';
+import {tr} from './i18n.js?v=0.26.5';
 
 const M = {top: 14, right: 16, bottom: 30, left: 48};
 
@@ -103,7 +104,7 @@ export function forestPlot(svg) {
   const pad = (hi - lo) * .05 || 1; lo -= pad; hi += pad;
   const X = v => L + (v - lo) / (hi - lo) * (W - L - R), fmt = v => (svg.dataset.unit === 'pp' ? pp(v) : `${v > 0 ? '+' : v < 0 ? '−' : ''}${int(Math.abs(v))}`);
   let out = ticks(lo, hi, narrow ? 3 : 5).filter(t => t !== 0 && t > lo && t < hi).map(t => `<line class="fp-grid" x1="${X(t)}" x2="${X(t)}" y1="${top - 8}" y2="${top + rh * rows.length}"/><text class="fp-tick" x="${X(t)}" y="${top + rh * rows.length + 20}" text-anchor="middle">${esc(fmt(t))}</text>`).join('');
-  out += `<line class="fp-zero" x1="${X(0)}" x2="${X(0)}" y1="${top - 8}" y2="${top + rh * rows.length}"/><text class="fp-tick" x="${X(0)}" y="${top + rh * rows.length + 20}" text-anchor="middle">0</text><text class="fp-lead" x="${X(0)}" y="${top - 14}" text-anchor="${X(0) > W - 60 ? 'end' : 'middle'}">1위 기준</text>`;
+  out += `<line class="fp-zero" x1="${X(0)}" x2="${X(0)}" y1="${top - 8}" y2="${top + rh * rows.length}"/><text class="fp-tick" x="${X(0)}" y="${top + rh * rows.length + 20}" text-anchor="middle">0</text><text class="fp-lead" x="${X(0)}" y="${top - 14}" text-anchor="${X(0) > W - 60 ? 'end' : 'middle'}">${tr('1위 기준', 'Leader')}</text>`;
   out += rows.map((r, i) => {
     const y = top + rh * i + rh / 2, k = r.tied ? '' : ' is-firm', name = r.name.length > (narrow ? 11 : 17) ? r.name.slice(0, narrow ? 10 : 16) + '…' : r.name;
     return `<g class="fp-row${k}"><text class="fp-name" x="0" y="${y + 5}">${esc(name)}</text><line class="fp-ci" x1="${X(r.lo)}" x2="${X(r.hi)}" y1="${y}" y2="${y}"/>

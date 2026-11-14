@@ -1,9 +1,10 @@
 // Shell: header, router and the engine chip. Views live in ./views and read from ./store.
-import {$, esc, go} from './lib.js?v=0.26.4';
-import {state, subscribe, boot, running} from './store.js?v=0.26.4';
-import {workspaceView} from './views/workspace.js?v=0.26.4';
-import {algorithmsView} from './views/algorithms.js?v=0.26.4';
-import {dataView} from './views/data.js?v=0.26.4';
+import {$, esc, go} from './lib.js?v=0.26.5';
+import {lang, tr, setLang, translateStatic} from './i18n.js?v=0.26.5';
+import {state, subscribe, boot, running} from './store.js?v=0.26.5';
+import {workspaceView} from './views/workspace.js?v=0.26.5';
+import {algorithmsView} from './views/algorithms.js?v=0.26.5';
+import {dataView} from './views/data.js?v=0.26.5';
 
 const routes = [
   [/^\/?$/, workspaceView, () => ({})],
@@ -33,19 +34,22 @@ function route() {
 function chrome() {
   const e = state.engine, chip = $('#runtime');
   chip.dataset.kind = e.status === 'ready' ? e.kind : e.status;
-  chip.querySelector('span').textContent = e.status === 'ready' ? (e.kind === 'local' ? `로컬 실행 · ${e.info.device}` : '브라우저 실행') : e.status === 'error' ? '엔진 오류' : '엔진 준비 중';
+  chip.querySelector('span').textContent = e.status === 'ready' ? (e.kind === 'local' ? `${tr('로컬 실행', 'Local')} · ${e.info.device}` : tr('브라우저 실행', 'In browser')) : e.status === 'error' ? tr('엔진 오류', 'Engine error') : tr('엔진 준비 중', 'Starting engine');
   const info = e.info;
   $('#runtime-now').innerHTML = e.status === 'ready'
-    ? (e.kind === 'local' ? `로컬 Python ${esc(info.python)} · NumPy ${esc(info.numpy)} · ${esc(info.devices.join(', '))}에서 실행 중이에요. 알고리즘은 설치된 모든 패키지를 쓸 수 있어요.`
-      : `브라우저 안의 Python ${esc(info.python)}(Pyodide)에서 실행 중이에요. 알고리즘이 import하는 라이브러리는 처음 쓸 때 내려받아요. 업로드한 데이터와 코드는 브라우저 밖으로 전송되지 않아요.`)
-    : e.status === 'error' ? `엔진을 불러오지 못했어요 · ${esc(e.text)}. 네트워크를 확인하거나 로컬에서 실행해 주세요.` : esc(e.text || '엔진을 준비하고 있어요');
+    ? (e.kind === 'local' ? tr(`로컬 Python ${esc(info.python)} · NumPy ${esc(info.numpy)} · ${esc(info.devices.join(', '))}에서 실행 중이에요. 알고리즘은 설치된 모든 패키지를 쓸 수 있어요.`, `Your local Python ${esc(info.python)} · NumPy ${esc(info.numpy)} · ${esc(info.devices.join(', '))}. Algorithms can use every package you have installed.`)
+      : tr(`브라우저 안의 Python ${esc(info.python)}(Pyodide)에서 실행 중이에요. 알고리즘이 import하는 라이브러리는 처음 쓸 때 내려받아요. 업로드한 데이터와 코드는 브라우저 밖으로 전송되지 않아요.`, `Python ${esc(info.python)} inside this browser tab (Pyodide). Libraries an algorithm imports download on first use. Uploaded data and code never leave the browser.`))
+    : e.status === 'error' ? tr(`엔진을 불러오지 못했어요 · ${esc(e.text)}. 네트워크를 확인하거나 로컬에서 실행해 주세요.`, `The engine did not load · ${esc(e.text)}. Check the network, or run it locally.`) : esc(e.text || tr('엔진을 준비하고 있어요', 'Starting the engine'));
   $('#runtime-local').hidden = e.kind === 'local';
+  $('#runtime-install').hidden = e.kind === 'local';  // the local edition is already installed
   const pill = $('#live-pill'), r = state.live;
   pill.hidden = !running();
-  if (running()) { pill.href = '#/runs/' + r.id; pill.textContent = `실행 중 · ${Math.min(r.cycles.length + 1, r.plan?.cycles || r.config.cycles)}/${r.plan?.cycles || r.config.cycles}`; }
+  if (running()) { pill.href = '#/runs/' + r.id; pill.textContent = `${tr('실행 중', 'Running')} · ${Math.min(r.cycles.length + 1, r.plan?.cycles || r.config.cycles)}/${r.plan?.cycles || r.config.cycles}`; }
 }
 
 document.addEventListener('click', e => {
+  const pick = e.target.closest('[data-lang]');
+  if (pick) { setLang(pick.dataset.lang); return; }
   const button = e.target.closest('#runtime, #runtime-local'), pop = $('#runtime-pop');
   if (button) { pop.hidden = !pop.hidden; button.setAttribute('aria-expanded', String(!pop.hidden)); return; }
   if (!e.target.closest('#runtime-pop')) { pop.hidden = true; $('#runtime').setAttribute('aria-expanded', 'false'); }
@@ -53,5 +57,7 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#runtime-pop').hidden = true; });
 window.addEventListener('hashchange', route);
 subscribe(kind => { if (kind === 'init') route(); if (kind !== 'activity' && kind !== 'draft') chrome(); });  // route once saved data is loaded
+translateStatic();
+document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
 boot();
 chrome();

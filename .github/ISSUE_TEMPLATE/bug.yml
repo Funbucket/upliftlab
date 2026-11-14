@@ -7,7 +7,7 @@ body:
     attributes:
       label: 어디서 실행했나요?
       options:
-        - 웹 (uplift-lab.vercel.app)
+        - 웹 (upliftlab.dev)
         - 로컬 (pip install upliftlab / uvx upliftlab)
         - 명령줄 (upliftlab run)
     validations:

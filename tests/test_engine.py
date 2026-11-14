@@ -238,6 +238,21 @@ def test_the_command_line_table_ranks_and_measures_gaps_on_one_basis():
     assert by_gain[0].split()[2:4] == ['gain', '95%'] and by_gain[1].split() == ['truth', 'observed', 'truth', 'truth']
 
 
+def test_engine_messages_follow_the_screen_language():
+    assert 'en' in call('info')['languages']
+    try:
+        assert call('set_lang', lang='en') == {'lang': 'en'}
+        assert call('check', code='x = 1')['error'] == 'Define class Model.'
+        failed = json.loads(bridge.call('run_start', json.dumps({'dataset': 'synthetic/base', 'algorithms': []})))
+        assert not failed['ok'] and 'Pick at least one algorithm.' in failed['error']
+        checks = call('add_dataset', id='upload/lang', csv=make_csv(), name='lang.csv')['profile']['checks']
+        assert {c['title'] for c in checks} >= {'Treated share', 'Covariate balance', 'Incremental cost', 'Sample size'}
+    finally:
+        call('set_lang', lang='ko')
+    assert call('check', code='x = 1')['error'] == 'class Model을 정의해 주세요.'
+    assert call('set_lang', lang='fr') == {'lang': 'ko'}, 'an unknown language keeps the current one'
+
+
 def test_qini_and_uplift_at_k_follow_their_definitions():
     line = [{'f': f, 'cost': f * 10, 'value': f * 4} for f in (0, .25, .5, .75, 1)]
     assert qini(line) == pytest.approx(0), 'a straight line is random targeting'

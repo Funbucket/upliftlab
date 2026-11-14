@@ -1,24 +1,26 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#06070a"><meta name="color-scheme" content="dark"><title>upliftlab · Uplift 알고리즘 비교</title><meta name="description" content="같은 예산에서 증분 성과를 가장 많이 내는 uplift 모델을 운영 전에 찾아요. 모델마다 대상을 고르고, 처치군과 대조군으로 효과를 재고, 재학습하는 루프를 그대로 돌려 비교해요. 데이터는 브라우저나 내 컴퓨터 밖으로 나가지 않아요."><meta property="og:type" content="website"><meta property="og:site_name" content="upliftlab"><meta property="og:url" content="https://uplift-lab.vercel.app/"><meta property="og:title" content="upliftlab · 같은 예산을 주고, 모델끼리 겨뤄요"><meta property="og:description" content="uplift 모델들이 운영처럼 대상을 고르고, 효과를 재고, 다시 학습해요. Criteo 광고 실험 예시를 설치 없이 브라우저에서 바로 돌려 보세요."><meta property="og:image" content="https://uplift-lab.vercel.app/og.png"><meta property="og:image:width" content="1280"><meta property="og:image:height" content="640"><meta property="og:image:alt" content="uplift 모델 6개의 누적 증분 방문 순위표. 1~5위는 95% CI 안이고 Random과의 차이는 유의해요."><meta name="twitter:card" content="summary_large_image"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%233182f6'/%3E%3Cpath d='M12 36C14.5 20 22.5 13.6 36 12' stroke='%23fff' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='36' cy='12' r='3.6' fill='%23fff'/%3E%3C/svg%3E"><link rel="stylesheet" href="./styles.css?v=0.26.4"></head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#06070a"><meta name="color-scheme" content="dark"><title>upliftlab · Uplift 알고리즘 비교</title><meta name="description" content="같은 예산에서 증분 성과를 가장 많이 내는 uplift 모델을 운영 전에 찾아요. 모델마다 대상을 고르고, 처치군과 대조군으로 효과를 재고, 재학습하는 루프를 그대로 돌려 비교해요. 데이터는 브라우저나 내 컴퓨터 밖으로 나가지 않아요."><meta property="og:type" content="website"><meta property="og:site_name" content="upliftlab"><meta property="og:url" content="https://upliftlab.dev/"><meta property="og:title" content="upliftlab · 같은 예산을 주고, 모델끼리 겨뤄요 | Race uplift models on the same budget"><meta property="og:description" content="uplift 모델들이 운영처럼 대상을 고르고, 효과를 재고, 다시 학습해요. Criteo 광고 실험 예시를 설치 없이 브라우저에서 바로 돌려 보세요."><meta property="og:image" content="https://upliftlab.dev/og.png"><meta property="og:image:width" content="1280"><meta property="og:image:height" content="640"><meta property="og:image:alt" content="uplift 모델 6개의 누적 증분 방문 순위표. 1~5위는 95% CI 안이고 Random과의 차이는 유의해요."><meta name="twitter:card" content="summary_large_image"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%233182f6'/%3E%3Cpath d='M12 36C14.5 20 22.5 13.6 36 12' stroke='%23fff' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='36' cy='12' r='3.6' fill='%23fff'/%3E%3C/svg%3E"><link rel="stylesheet" href="./styles.css?v=0.26.5"></head>
 <body>
 <header class="top"><div class="top-inner">
   <a class="brand" href="#/"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#3182f6"/><path d="M12 36L36 12" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-dasharray="2.6 3.4" stroke-linecap="round" fill="none"/><path d="M12 36C14.5 20 22.5 13.6 36 12" stroke="#fff" stroke-width="3.6" stroke-linecap="round" fill="none"/><circle cx="36" cy="12" r="3.2" fill="#fff"/></svg>upliftlab</a>
-  <nav class="top-nav" aria-label="화면"><a href="#/" data-nav="">비교</a><a href="#/data" data-nav="data">데이터</a><a href="#/algorithms" data-nav="algorithms">알고리즘</a></nav>
+  <nav class="top-nav" aria-label="화면" data-en-label="Screens"><a href="#/" data-nav="" data-en="Compare">비교</a><a href="#/data" data-nav="data" data-en="Data">데이터</a><a href="#/algorithms" data-nav="algorithms" data-en="Algorithms">알고리즘</a></nav>
   <a class="live-pill" id="live-pill" href="#/" hidden></a>
   <span class="spacer"></span>
   <div class="menu"><button type="button" class="runtime" id="runtime" aria-haspopup="dialog" aria-expanded="false" data-kind="loading"><span>엔진 준비 중</span></button>
-    <div class="menu-pop runtime-pop" id="runtime-pop" role="dialog" aria-label="실행 환경" hidden>
-      <h3>현재 실행 환경</h3><p id="runtime-now"></p>
-      <h3>로컬에서 실행</h3><p>같은 화면과 엔진을 내 컴퓨터의 Python에서 실행해요. 설치된 패키지와 GPU를 모두 쓸 수 있고, 브라우저보다 큰 데이터를 다룰 수 있어요.</p>
-      <pre class="mono">pip install upliftlab
-upliftlab                 # 브라우저에 이 화면이 열려요</pre>
-      <p>화면 없이 비교만 돌리고, 결과 JSON을 실행 기록에서 열 수도 있어요.</p>
+    <div class="menu-pop runtime-pop" id="runtime-pop" role="dialog" aria-label="실행 환경" data-en-label="Runtime" hidden>
+      <h3 data-en="Running on">현재 실행 환경</h3><p id="runtime-now"></p>
+      <div id="runtime-install"><h3 data-en="Run it locally">로컬에서 실행</h3><p data-en="The same screen and engine in your own Python: every package you have installed, your GPU, and data larger than a browser can hold.">같은 화면과 엔진을 내 컴퓨터의 Python에서 실행해요. 설치된 패키지와 GPU를 모두 쓸 수 있고, 브라우저보다 큰 데이터를 다룰 수 있어요.</p>
+      <pre class="mono" data-en="pip install upliftlab
+upliftlab                 # opens this screen in your browser">pip install upliftlab
+upliftlab                 # 브라우저에 이 화면이 열려요</pre></div>
+      <p data-en="Or compare without the screen, and open the result JSON under run history.">화면 없이 비교만 돌리고, 결과 JSON을 실행 기록에서 열 수도 있어요.</p>
       <pre class="mono">upliftlab run --data my_experiment.csv --out result.json</pre>
-      <p><a class="link" href="https://github.com/Funbucket/upliftlab" target="_blank" rel="noopener">GitHub에서 소스와 설명 보기</a></p>
+      <p><a class="link" href="https://github.com/Funbucket/upliftlab" target="_blank" rel="noopener" data-en="Source and docs on GitHub">GitHub에서 소스와 설명 보기</a></p>
     </div></div>
-  <button type="button" class="btn-link top-local" id="runtime-local">로컬에서 실행</button>
+  <button type="button" class="btn-link top-local" id="runtime-local" data-en="Run locally">로컬에서 실행</button>
+  <div class="lang-switch" role="group" aria-label="언어 · Language"><button type="button" data-lang="ko" lang="ko">KO</button><button type="button" data-lang="en" lang="en">EN</button></div>
   <a class="top-gh" href="https://github.com/Funbucket/upliftlab" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 014 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
 </div></header>
 <main id="app"></main>
-<script type="module" src="./app.js?v=0.26.4"></script>
+<script type="module" src="./app.js?v=0.26.5"></script>
 </body></html>
