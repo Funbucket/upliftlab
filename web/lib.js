@@ -1,5 +1,5 @@
 // Small helpers shared by every view.
-import {EN, LOCALE, tr} from './i18n.js?v=0.26.5';
+import {EN, LOCALE, tr} from './i18n.js?v=0.26.6';
 export const $ = (selector, el = document) => el.querySelector(selector);
 export const $$ = (selector, el = document) => [...el.querySelectorAll(selector)];
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -14,15 +14,21 @@ export const share = v => (isNum(v) ? `${Math.round(v * 100)}%` : '—');
 export const duration = v => (!isNum(v) ? '—' : v < 1 ? '<1ms' : v < 1000 ? `${Math.round(v)}ms` : `${(v / 1000).toFixed(1)}${tr('초', 's')}`);
 export const when = t => new Date(t).toLocaleString(LOCALE, {month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'});
 
-// Categorical slots in fixed order, stepped for the dark surface (#0b0d11): OKLCH L 0.48–0.67, ≥ 3:1 contrast, worst adjacent
-// CVD ΔE 8.4 and normal-vision ΔE 19.3, checked with the dataviz palette validator.
-export const PALETTE = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'];
-export const MAX_ALGORITHMS = PALETTE.length;
-export const BASELINE = '#8b95a1';  // the random baseline is a reference, not a contender
+// Categorical slots in fixed order from the dataviz reference palette, one step per surface. Dark: OKLCH L 0.48–0.67, ≥ 3:1 on
+// #0b0d11, worst adjacent CVD ΔE 8.4 and normal-vision ΔE 19.3. Light: worst adjacent CVD ΔE 9.1 and normal-vision ΔE 19.6; aqua,
+// yellow and magenta sit under 3:1 on white, so every chart keeps a legend or direct labels next to the table view.
+export const PALETTE = {
+  dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
+  light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'],
+};
+export const MAX_ALGORITHMS = PALETTE.dark.length;
+export const BASELINE = {dark: '#8b95a1', light: '#7d8794'};  // the random baseline is a reference, not a contender
+// The slots as custom properties (--s1…--s8, --s0 for the baseline), so a theme switch repaints every chart without a redraw.
+export const paletteCss = theme => [`--s0:${BASELINE[theme]}`, ...PALETTE[theme].map((c, i) => `--s${i + 1}:${c}`)].join(';');
 // Colors follow each algorithm's position in a run; the random baseline always reads as a neutral reference.
 export function colorsFor(ids) {
   let slot = 0;
-  return Object.fromEntries(ids.map(id => [id, id === 'random_baseline' ? BASELINE : PALETTE[slot++ % PALETTE.length]]));
+  return Object.fromEntries(ids.map(id => [id, id === 'random_baseline' ? 'var(--s0)' : `var(--s${slot++ % MAX_ALGORITHMS + 1})`]));
 }
 
 // How Exploit is selected. `who` names public cases whose papers describe the rule.

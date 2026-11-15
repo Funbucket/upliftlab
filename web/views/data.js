@@ -1,7 +1,7 @@
 // Datasets: the public Criteo sample and uploaded logs, with column mapping, validity checks and a profile.
-import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.26.5';
-import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.26.5';
-import {EN, LOCALE, tr} from '../i18n.js?v=0.26.5';
+import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.26.6';
+import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.26.6';
+import {EN, LOCALE, tr} from '../i18n.js?v=0.26.6';
 
 const ROLES = EN ? [['feature', 'Covariate'], ['treatment', 'Treatment'], ['outcome', 'Outcome'], ['cost', 'Cost'], ['skip', 'Skip']] : [['feature', '공변량'], ['treatment', '처치'], ['outcome', '결과'], ['cost', '비용'], ['skip', '제외']];
 const LEVELS = EN ? {ok: ['Pass', 'check-ok'], warn: ['Warning', 'check-warn'], bad: ['Error', 'check-bad']} : {ok: ['통과', 'check-ok'], warn: ['경고', 'check-warn'], bad: ['오류', 'check-bad']};

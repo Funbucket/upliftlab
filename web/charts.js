@@ -1,6 +1,6 @@
 // SVG line charts with one y-axis, a recessive grid, 2px lines and a crosshair tooltip that lists every series.
-import {esc, isNum, int, pp} from './lib.js?v=0.26.5';
-import {tr} from './i18n.js?v=0.26.5';
+import {esc, isNum, int, pp} from './lib.js?v=0.26.6';
+import {tr} from './i18n.js?v=0.26.6';
 
 const M = {top: 14, right: 16, bottom: 30, left: 48};
 
@@ -12,7 +12,7 @@ function ticks(lo, hi, count = 5) {
   return out;
 }
 
-// series: [{id, name, color, points: [[x, y], …]}]; hover.xs are the x positions the crosshair snaps to.
+// series: [{id, name, color, points: [[x, y], …]}], color being any CSS color (colorsFor gives custom properties); hover.xs are the x positions the crosshair snaps to.
 export function lineChart(el, {series, x, y, hover, baseline, diagonal = false, focus = null, height = 260, direct = series.length <= 4, width: fixed = 0}) {
   el.classList.add('chart');
   const width = Math.max(280, fixed || el.clientWidth || 600), right = direct ? 128 : M.right;
@@ -30,12 +30,12 @@ export function lineChart(el, {series, x, y, hover, baseline, diagonal = false, 
   const note = base ? `<text x="${M.left + W}" y="${Y(baseline.y) + (Y(baseline.y) + 15 > M.top + H ? -6 : 15)}" class="c-note" text-anchor="end">${esc(baseline.label)}</text>` : '';  // drawn over the lines, which may pass through it
   const diag = diagonal ? `<line x1="${X(x.domain[0])}" y1="${Y(0)}" x2="${X(x.domain[1])}" y2="${Y(1)}" class="c-diag"/>` : '';
   const order = [...series].sort((a, b) => (a.id === focus) - (b.id === focus));  // the focused line is drawn last
-  const lines = order.map(s => `<path d="${path(s.points)}" class="c-line${focus && s.id !== focus ? ' is-dim' : ''}" stroke="${s.color}" data-id="${esc(s.id)}"/>`).join('');
+  const lines = order.map(s => `<path d="${path(s.points)}" class="c-line${focus && s.id !== focus ? ' is-dim' : ''}" style="stroke:${s.color}" data-id="${esc(s.id)}"/>`).join('');
   let labels = '';
   if (direct) {
     const ends = series.map(s => { const p = s.points.filter(q => isNum(q[1])).at(-1); return p && {s, y: Y(p[1]), x: X(p[0])}; }).filter(Boolean).sort((a, b) => a.y - b.y);
     for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 15);
-    labels = ends.map(e => `<g class="c-label${focus && e.s.id !== focus ? ' is-dim' : ''}"><line x1="${M.left + W + 8}" x2="${M.left + W + 20}" y1="${e.y}" y2="${e.y}" stroke="${e.s.color}" stroke-width="2"/><text x="${M.left + W + 25}" y="${e.y + 4}">${esc(e.s.name.length > 15 ? e.s.name.slice(0, 14) + '…' : e.s.name)}</text></g>`).join('');
+    labels = ends.map(e => `<g class="c-label${focus && e.s.id !== focus ? ' is-dim' : ''}"><line x1="${M.left + W + 8}" x2="${M.left + W + 20}" y1="${e.y}" y2="${e.y}" style="stroke:${e.s.color}" stroke-width="2"/><text x="${M.left + W + 25}" y="${e.y + 4}">${esc(e.s.name.length > 15 ? e.s.name.slice(0, 14) + '…' : e.s.name)}</text></g>`).join('');
   }
   el.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(y.label || '')}" tabindex="0">${grid}${xt}${base}${diag}${lines}${note}${labels}<g class="c-cross" hidden><line class="c-hair" y1="${M.top}" y2="${M.top + H}"/><g class="c-dots"></g></g><rect x="${M.left}" y="${M.top}" width="${W}" height="${H}" fill="transparent" class="c-hit"/></svg><div class="c-tip" hidden></div>`;
   const svg = el.firstChild, tip = el.lastChild, cross = svg.querySelector('.c-cross'), hair = svg.querySelector('.c-hair'), dots = svg.querySelector('.c-dots');
@@ -44,7 +44,7 @@ export function lineChart(el, {series, x, y, hover, baseline, diagonal = false, 
     at = i; const xv = hover.xs[i], px = X(xv);
     cross.hidden = false; hair.setAttribute('x1', px); hair.setAttribute('x2', px);
     const rows = series.map(s => ({s, v: hover.value(s, xv)})).filter(r => isNum(r.v)).sort((a, b) => b.v - a.v);
-    dots.innerHTML = rows.map(r => `<circle cx="${px}" cy="${Y(r.v)}" r="4" fill="${r.s.color}" class="c-dot"/>`).join('');
+    dots.innerHTML = rows.map(r => `<circle cx="${px}" cy="${Y(r.v)}" r="4" style="fill:${r.s.color}" class="c-dot"/>`).join('');
     tip.replaceChildren();
     const title = document.createElement('b'); title.textContent = hover.title(xv); tip.append(title);
     for (const r of rows) {

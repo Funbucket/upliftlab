@@ -1,11 +1,11 @@
 // The shareable report: one self-contained HTML file with the conclusion, the ranking, two charts, the conditions and how to
 // read them. It holds aggregates only, never uploaded rows. The same page prints to PDF, and a three-line summary goes to chat.
-import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.26.5';
-import {wordsFor, dataset, algorithm} from './store.js?v=0.26.5';
-import {CATALOG} from './catalog.js?v=0.26.5';
-import {EN, LOCALE, lang, tr} from './i18n.js?v=0.26.5';
-import {lineChart} from './charts.js?v=0.26.5';
-import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml, headlineOf} from './summary.js?v=0.26.5';
+import {esc, isNum, int, fix, pct, pp, share, duration, unitFor, download, josa, paletteCss, BRIEF, SELECTION, selectionLabel} from './lib.js?v=0.26.6';
+import {wordsFor, dataset, algorithm} from './store.js?v=0.26.6';
+import {CATALOG} from './catalog.js?v=0.26.6';
+import {EN, LOCALE, lang, tr} from './i18n.js?v=0.26.6';
+import {lineChart} from './charts.js?v=0.26.6';
+import {FIELDS, BASIS_NOTE, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictHtml, headlineOf} from './summary.js?v=0.26.6';
 
 const SITE = 'https://upliftlab.dev';
 const day = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -84,6 +84,7 @@ function charts(run) {
 
 // The app's typeface from Google Fonts. Offline, the system's Korean font (Apple SD Gothic Neo, Malgun Gothic) takes over.
 const CSS = `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap');
+:root{${paletteCss('light')}}  /* the report is always on white, so the series take their light steps */
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#fff;color:#191f28;font:15px/1.6 "Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 main{max-width:820px;margin:0 auto;padding:40px 24px 56px}

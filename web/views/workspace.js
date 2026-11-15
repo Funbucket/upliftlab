@@ -1,13 +1,13 @@
 // The main screen: the hero with the timing tower, the setup console, the result of the run, how a cycle works, and how to run
 // it locally. The local edition is used by people who already installed it, so it opens on the console and the result only.
-import {$, esc, go} from '../lib.js?v=0.26.5';
-import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.26.5';
-import {launcherPanel} from './launcher.js?v=0.26.5';
-import {resultsPanel} from './results.js?v=0.26.5';
-import {towerPanel, loopPanel, installPanel} from './home.js?v=0.26.5';
-import {EN, tr} from '../i18n.js?v=0.26.5';
+import {$, esc, go} from '../lib.js?v=0.26.6';
+import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.26.6';
+import {launcherPanel} from './launcher.js?v=0.26.6';
+import {resultsPanel} from './results.js?v=0.26.6';
+import {towerPanel, loopPanel, installPanel} from './home.js?v=0.26.6';
+import {EN, tr} from '../i18n.js?v=0.26.6';
 
-const DOCS = EN ? ['Docs', 'https://github.com/Funbucket/upliftlab/blob/main/README.en.md'] : ['사용 안내', 'https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md'];
+const DOCS = EN ? ['Docs', 'https://github.com/Funbucket/upliftlab#readme'] : ['사용 안내', 'https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md'];
 
 const STEPS = EN ? [
   ['Select targets', 'Each model ranks users by score and picks whom to treat within the same budget.'],

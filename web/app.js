@@ -1,10 +1,11 @@
 // Shell: header, router and the engine chip. Views live in ./views and read from ./store.
-import {$, esc, go} from './lib.js?v=0.26.5';
-import {lang, tr, setLang, translateStatic} from './i18n.js?v=0.26.5';
-import {state, subscribe, boot, running} from './store.js?v=0.26.5';
-import {workspaceView} from './views/workspace.js?v=0.26.5';
-import {algorithmsView} from './views/algorithms.js?v=0.26.5';
-import {dataView} from './views/data.js?v=0.26.5';
+import {$, esc, go} from './lib.js?v=0.26.6';
+import {lang, tr, setLang, translateStatic} from './i18n.js?v=0.26.6';
+import {onTheme, toggleTheme} from './theme.js?v=0.26.6';
+import {state, subscribe, boot, running} from './store.js?v=0.26.6';
+import {workspaceView} from './views/workspace.js?v=0.26.6';
+import {algorithmsView} from './views/algorithms.js?v=0.26.6';
+import {dataView} from './views/data.js?v=0.26.6';
 
 const routes = [
   [/^\/?$/, workspaceView, () => ({})],
@@ -50,6 +51,7 @@ function chrome() {
 document.addEventListener('click', e => {
   const pick = e.target.closest('[data-lang]');
   if (pick) { setLang(pick.dataset.lang); return; }
+  if (e.target.closest('#theme')) { toggleTheme(); return; }
   const button = e.target.closest('#runtime, #runtime-local'), pop = $('#runtime-pop');
   if (button) { pop.hidden = !pop.hidden; button.setAttribute('aria-expanded', String(!pop.hidden)); return; }
   if (!e.target.closest('#runtime-pop')) { pop.hidden = true; $('#runtime').setAttribute('aria-expanded', 'false'); }
@@ -59,5 +61,6 @@ window.addEventListener('hashchange', route);
 subscribe(kind => { if (kind === 'init') route(); if (kind !== 'activity' && kind !== 'draft') chrome(); });  // route once saved data is loaded
 translateStatic();
 document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+onTheme(t => { const label = t === 'light' ? tr('다크 모드로 보기', 'Switch to dark mode') : tr('라이트 모드로 보기', 'Switch to light mode'); $('#theme').setAttribute('aria-label', label); $('#theme').title = label; });
 boot();
 chrome();

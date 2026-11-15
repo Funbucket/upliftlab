@@ -1,8 +1,8 @@
 // Reading a run: the basis it ranks on, its algorithms, the leader's Exploit group, and the conclusion.
 // The results panel and the shared report both use these, so the app and the report say the same thing.
-import {esc, isNum, int, pct, pp, josa, colorsFor} from './lib.js?v=0.26.5';
-import {algorithm} from './store.js?v=0.26.5';
-import {EN, tr} from './i18n.js?v=0.26.5';
+import {esc, isNum, int, pct, pp, josa, colorsFor} from './lib.js?v=0.26.6';
+import {algorithm} from './store.js?v=0.26.6';
+import {EN, tr} from './i18n.js?v=0.26.6';
 
 const cap = t => String(t).charAt(0).toUpperCase() + String(t).slice(1);
 const are = list => (list.length > 1 ? 'are' : 'is');

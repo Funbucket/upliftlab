@@ -1,10 +1,10 @@
 // The right panel: the leaderboard, the Exploit group's covariates, per-cycle metrics and the row-level log.
-import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.26.5';
-import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.26.5';
-import {lineChart, interpolate, responsive, interval, forestPlot} from '../charts.js?v=0.26.5';
-import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictPanel} from '../summary.js?v=0.26.5';
-import {downloadReport, printReport, copySummary, downloadCard} from '../report.js?v=0.26.5';
-import {EN, tr} from '../i18n.js?v=0.26.5';
+import {$, $$, esc, isNum, int, fix, pct, pp, share, duration, when, colorsFor, download, go, josa, unitFor, BRIEF, SELECTION, BUDGET_MODES, selectionLabel} from '../lib.js?v=0.26.6';
+import {state, subscribe, running, pauseRun, resumeRun, stopRun, deleteRun, importRun, exportRun, dataset, algorithm, EXAMPLE_RUN, wordsFor, planOf, sameConfig, useConfig} from '../store.js?v=0.26.6';
+import {lineChart, interpolate, responsive, interval, forestPlot} from '../charts.js?v=0.26.6';
+import {FIELDS, baseOf, hasTruth, modeOf, isBudget, byVolume, sumOf, datasetOf, armsOf, exploitProfile, describeProfile, verdictOf, verdictPanel} from '../summary.js?v=0.26.6';
+import {downloadReport, printReport, copySummary, downloadCard} from '../report.js?v=0.26.6';
+import {EN, tr} from '../i18n.js?v=0.26.6';
 
 const USE = EN ? {train: 'training', validation: 'validation'} : {train: '학습', validation: '검증'};  // what an explore row is used for after its cycle; test rows are not used in a run
 const upliftK = run => (isBudget(run) ? run.plan?.budget ?? run.config?.budget : run.plan?.target ?? run.config?.target);
