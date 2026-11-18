@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import __version__, contract, datasets, i18n
+from . import __version__, contract, datasets, i18n, tables
 from .i18n import tr
 from .algorithms import ORDER
 from .arena import Run, quick_check
@@ -125,6 +125,11 @@ def inspect_csv(csv):
     return datasets.inspect(csv)
 
 
+def read_workbook(data, sheet=None):
+    """An Excel file sent as base64: one sheet as CSV text, with the sheet names for the picker."""
+    return tables.workbook(data, sheet)
+
+
 def add_dataset(id, csv, name, mapping=None):
     data = datasets.parse(csv, mapping)
     state['data'][id] = data
@@ -191,7 +196,7 @@ def run_all(dataset, algorithms, cycles=8, explore=.2, target=.4, seed=42, mode=
     return clean(record(plan, out))
 
 
-METHODS = {f.__name__: f for f in (info, set_lang, check, requirements, try_algorithm, inspect_csv, add_dataset, sample_csv, fetch_dataset, describe_dataset, run_start, run_cycle, run_all)}
+METHODS = {f.__name__: f for f in (info, set_lang, check, requirements, try_algorithm, inspect_csv, read_workbook, add_dataset, sample_csv, fetch_dataset, describe_dataset, run_start, run_cycle, run_all)}
 
 
 def call(method, payload='{}'):

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "upliftlab"
-version = "0.26.6"
+version = "0.27.0"
 description = "Find the uplift model that gives the most incremental outcome for the same budget, on your own experiment data"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -21,7 +21,7 @@ dependencies = ["numpy>=1.21", "scikit-learn>=1.2",
 [project.optional-dependencies]
 gpu = ["torch"]
 templates = ["lightgbm>=4", "torch"]
-dev = ["pytest", "lightgbm>=4"]
+dev = ["pytest", "lightgbm>=4", "openpyxl"]
 
 [project.urls]
 Homepage = "https://upliftlab.dev"

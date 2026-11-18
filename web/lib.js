@@ -1,5 +1,5 @@
 // Small helpers shared by every view.
-import {EN, LOCALE, tr} from './i18n.js?v=0.26.6';
+import {EN, LOCALE, tr} from './i18n.js?v=0.27.0';
 export const $ = (selector, el = document) => el.querySelector(selector);
 export const $$ = (selector, el = document) => [...el.querySelectorAll(selector)];
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));

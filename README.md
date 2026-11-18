@@ -44,10 +44,10 @@ upliftlab                # opens http://127.0.0.1:4180
 
 With uv, `uvx upliftlab` runs it without installing. The first run downloads the Criteo sample (2.3 MB) once.
 
-**Without the screen.** Compare models on your own CSV and get the standings in the terminal:
+**Without the screen.** Compare models on your own Excel or CSV file and get the standings in the terminal:
 
 ```bash
-upliftlab run --data my_experiment.csv --algorithm my_model.py
+upliftlab run --data my_experiment.xlsx --algorithm my_model.py
 ```
 
 > [!NOTE]
@@ -91,12 +91,12 @@ class Model:
 <summary><b>Data format</b> · a randomized experiment log with at least 1,000 rows</summary>
 <br>
 
-Column names are free; the screen guesses the roles and you can change them.
+Excel (`.xlsx`) or CSV. Column names are free, in English or Korean; the screen suggests each column's role and you can change it. ID columns, values recorded after treatment (like whether a coupon was used) and columns that move with the outcome are left out, each with the reason.
 
 | Role | Example | Values |
 | :-- | :-- | :-- |
-| Treatment | `treatment` | 0 = control, 1 = treated. Several treatments: 1, 2, 3… |
-| Outcome | `retained` | What you want more of: conversion, purchase, retention |
+| Treatment | `treatment`, `group` | 0 = control, 1 = treated, or words like control/test. Several treatments: 1, 2, 3… |
+| Outcome | `retained` | What you want more of: conversion, purchase, retention. 0/1, Y/N or an amount |
 | Cost (optional) | `coupon_cost` | What the treatment cost. Without it every treatment costs 1 |
 | Covariates | `visit_freq`, … | User features measured **before** treatment |
 

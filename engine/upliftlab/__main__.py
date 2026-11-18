@@ -13,7 +13,8 @@ web.add_argument('--no-browser', action='store_true', help='do not open the brow
 check = sub.add_parser('check', help='list the libraries an algorithm file uses, then fit it once on synthetic data')
 check.add_argument('file', metavar='FILE.py')
 run = sub.add_parser('run', help='run a head-to-head comparison without the UI and write the result as JSON')
-run.add_argument('--data', default='public/criteo', help='public/criteo (the bundled 200k-row sample) | synthetic/base | path to a CSV')
+run.add_argument('--data', default='public/criteo', help='public/criteo (the bundled 200k-row sample) | synthetic/base | path to a CSV or Excel (.xlsx) file')
+run.add_argument('--sheet', help='with an Excel file: the sheet to read (defaults to the first sheet that holds a table)')
 run.add_argument('--algorithms', default='all', help='comma-separated built-in ids, or "all"')
 run.add_argument('--algorithm', action='append', default=[], metavar='FILE.py', help='add your own algorithm file (repeatable)')
 run.add_argument('--cycles', type=int, default=8)
@@ -71,9 +72,16 @@ def main(argv=None):
         if dataset.startswith('public/'):
             bridge.fetch_dataset(dataset)
         elif not dataset.startswith('synthetic/'):
+            from . import tables
             path = Path(dataset)
             dataset = 'upload/' + path.name
-            bridge.add_dataset(dataset, path.read_text(encoding='utf-8'), path.name)
+            try:
+                text, sheet = tables.load(path, args.sheet)
+                seen = datasets.inspect(text)
+                added = bridge.add_dataset(dataset, text, path.name, seen['mapping'])
+            except (OSError, ValueError) as error:
+                sys.exit(f'{path}: {error}')
+            print('\n'.join(columns_used(seen, added['mapping'], sheet)), file=sys.stderr)
         print(f'{dataset} · {len(algorithms)} algorithms · {args.cycles} cycles · device {devices[0]}', file=sys.stderr)
         bridge.set_reporter(lambda m: (lambda d: d.get('phase') == 'done' and print(f"  c{d['cycle']} {d['arm']} done", file=sys.stderr))(json.loads(m)))
         result = bridge.run_all(dataset, algorithms, args.cycles, args.explore, args.target, args.seed, args.mode, args.budget, args.base_learner, args.efficiency)
@@ -82,6 +90,21 @@ def main(argv=None):
         if args.out:
             Path(args.out).write_text(json.dumps({'format': 'upliftlab.run/1', **result}, ensure_ascii=False))
             print(f'\nwrote {args.out}', file=sys.stderr)
+
+
+def columns_used(seen, mapping, sheet=None):
+    """The roles read from a file's column names, and why each other column was left out, so a wrong guess shows before the run."""
+    levels = mapping.get('levels')
+    treated = f" ({', '.join(f'{k}={v}' for k, v in levels.items())})" if levels else ''
+    lines = [f"{seen['rows']:,} rows{f' · sheet {sheet}' if sheet else ''}",
+             f"  treatment {mapping['treatment']}{treated} · outcome {mapping['outcome']} · cost {mapping.get('cost') or '1 per treated row'}",
+             f"  covariates ({len(mapping['features'])}): {', '.join(mapping['features'])}"]
+    used = {mapping['treatment'], mapping['outcome'], mapping.get('cost'), *mapping['features']}
+    reasons = {'id': 'looks like an ID', 'after': 'same value for every control row', 'outcome': 'moves with the outcome'}
+    skipped = [f"{c['name']} ({reasons[c['note']['kind']]})" if c.get('note') else c['name'] for c in seen['columns'] if c['name'] not in used]
+    if skipped:
+        lines.append(f"  skipped: {', '.join(skipped)}")
+    return lines
 
 
 def table(result):

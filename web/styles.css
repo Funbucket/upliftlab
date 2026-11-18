@@ -321,6 +321,12 @@ button.opt{width:100%;border:0;background:none;font:inherit;color:inherit;text-a
 .mapping{margin-top:0}.mapping .cols td{padding:7px 10px}.mapping .cols select{width:120px}
 .role-help{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px 20px;margin-bottom:14px;padding:12px 14px;background:var(--bg);border-radius:8px;font-size:12.5px;color:var(--sub)}.role-help b{display:block;color:var(--ink);font-weight:600}
 .problems{margin-top:12px}.problems li{font-size:13px;color:var(--red)}.problems li::before{content:'· '}
+.map-fields{display:flex;flex-wrap:wrap;gap:0 16px}.map-fields .field{flex:1 1 220px;max-width:360px;margin-bottom:16px}
+.mapping .col-note{display:block;max-width:300px;margin-top:3px;font-size:12px;line-height:1.45;color:var(--amber-ink)}
+.confirm{margin:16px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:8px;display:grid;gap:10px}
+.confirm legend{padding:0 6px;font-size:13px;font-weight:600}
+.confirm label{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--sub);cursor:pointer}.confirm label b{display:block;color:var(--ink);font-weight:600}
+.confirm input{margin-top:3px;width:16px;height:16px;accent-color:var(--blue);flex:none}
 .libs{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
 .libs-label{font-size:12.5px;font-weight:600;color:var(--sub);margin-right:2px}
 .lib{display:inline-flex;align-items:baseline;gap:6px;padding:2px 8px;border-radius:6px;background:var(--line-2);font-size:12px}

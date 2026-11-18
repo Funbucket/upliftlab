@@ -40,10 +40,30 @@ TREATMENT_NAMES = {'t', 'treatment', 'treated', 'treat', 'w', 'group', 'coupon',
 OUTCOME_NAMES = {'y', 'outcome', 'conversion', 'converted', 'convert', 'retained', 'retention', 'yr', 'visit', 'visited', 'return', 'returned', 'response', 'purchase', 'purchased', 'bought', 'order', 'ordered', 'click', 'clicked', 'revenue', 'target', 'label'}
 COST_NAMES = {'cost', 'yc', 'spend', 'spent', 'expense'}
 ID_NAMES = {'id', 'user_id', 'userid', 'customer_id', 'index', 'row', 'uid'}
+# Korean names run words together (쿠폰지급여부 holds 쿠폰 and 지급), so these are looked for anywhere in a name. AWAY holds
+# words that point away from a role: a treatment is not what was used or spent, and an outcome is not a history
+# (누적구매액, last_order are covariates).
+KOREAN = {
+    'treatment': ('처치', '실험군', '쿠폰', '지급', '발송', '발급', '노출', '배정', '그룹', '집단', '캠페인', '프로모션', '혜택', '할인', '푸시', '메일', '문자', '알림', '광고'),
+    'outcome': ('구매', '전환', '결제', '주문', '매출', '방문', '유지', '리텐션', '잔존', '클릭', '응답', '가입', '반응', '성과', '결과', '거래'),
+    'cost': ('비용', '원가', '지출', '사용액', '할인액', '할인금액', '지급액', '혜택금액'),
+}
+AWAY = {
+    'treatment': ('사용', '비용', '금액', '액', 'used', 'redeem', 'redeemed', 'amount', 'cost'),
+    'outcome': ('누적', '이전', '과거', '최근', '평균', '전월', '지난', '직전', '사전', '기존', '일수', '경과',
+                'prev', 'previous', 'past', 'last', 'avg', 'mean', 'history', 'since', 'before', 'pre', 'lifetime'),
+    'cost': (),
+}
+ID_TOKENS = {'id', 'uid', 'uuid', 'no', 'idx', 'index', 'key', 'seq', 'name', 'email', 'phone', 'mobile', 'address'}
+ID_KOREAN = ('번호', '아이디', '순번', '일련', '이름', '성명', '전화', '휴대폰', '연락처', '이메일', '주소')
+CONTROL_WORDS = {'control', 'ctrl', 'holdout', 'hold-out', 'baseline', '대조', '대조군', '통제', '통제군', '비교군', '미지급', '미발송', '미발급', '미노출', '비노출', '미처치', '미적용', '미대상', '비대상'}
+BOOLEANS = {'true': 1., 'false': 0., 'yes': 1., 'no': 0., 'y': 1., 'n': 0., '예': 1., '아니오': 0., '아니요': 0., 'o': 1., 'x': 0.}
+TOTAL_WORDS = {'합계', '총계', '소계', '총합', 'total', 'sum', 'subtotal', 'grand total'}
+GROUPED = re.compile(r'\d{1,3}(,\d{3})+(\.\d*)?')
 MIN_ROWS = 1000
 MAX_LEVELS = 20  # a text column with more distinct values than this cannot become a feature
 MAX_TREATMENTS = 8
-BLANKS = {'', 'na', 'n/a', 'nan', 'null', 'none'}
+BLANKS = {'', 'na', 'n/a', 'nan', 'null', 'none', '-'}
 
 
 def catalog():
@@ -62,29 +82,85 @@ def synthetic_preset(dataset_id):
     return preset
 
 
+def _letter(j):
+    """A spreadsheet's column letter: 0 → A, 26 → AA."""
+    out = ''
+    j += 1
+    while j:
+        j, rest = divmod(j - 1, 26)
+        out = chr(65 + rest) + out
+    return out
+
+
+def _total(row):
+    first = next((cell.strip().lower() for cell in row if cell.strip()), '')
+    return first in TOTAL_WORDS
+
+
 def read(text):
+    """The header and rows of a CSV text, tidied the way a sheet saved from Excel needs. Title lines above the header, total
+    lines at the bottom and columns with neither a name nor a value are dropped. A column with values but no name is named
+    by its letter (A, B, …), and a repeated name gets a number."""
     text = text.lstrip('﻿')
     try:
         dialect = csv.Sniffer().sniff(text[:4096], delimiters=',;\t')
     except csv.Error:
         dialect = csv.excel
-    rows = list(csv.reader(io.StringIO(text), dialect))
+    rows = [r for r in csv.reader(io.StringIO(text), dialect) if any(cell.strip() for cell in r)]
     if not rows:
         raise ValueError(tr('빈 파일이에요.', 'The file is empty.'))
-    header = [h.strip() for h in rows[0]]
-    if len(set(header)) != len(header) or not all(header):
-        raise ValueError(tr('첫 줄은 비어 있지 않고 서로 다른 열 이름이어야 해요.', 'The first line must hold distinct, non-empty column names.'))
-    body = [r for r in rows[1:] if any(cell.strip() for cell in r)]
-    if any(len(r) != len(header) for r in body):
-        raise ValueError(tr('열 개수가 첫 줄과 다른 행이 있어요.', 'Some rows have a different number of columns than the first line.'))
-    return header, body
+    start = next((i for i, r in enumerate(rows) if sum(1 for cell in r if cell.strip()) >= 2), None)
+    if start is None:
+        raise ValueError(tr('열 이름이 두 개 이상 있는 표가 아니에요. 첫 줄에 열 이름이 있어야 해요.', 'This is not a table with two or more named columns. The first line needs the column names.'))
+    header, body = [h.strip() for h in rows[start]], rows[start + 1:]
+    while body and _total(body[-1]):
+        body.pop()
+    width = len(header)
+    if any(len(r) > width and any(cell.strip() for cell in r[width:]) for r in body):
+        raise ValueError(tr('열 이름보다 값이 많은 행이 있어요. 따옴표 없이 쉼표가 들어간 값이 있는지 확인해 주세요.', 'Some rows have more values than there are column names. Check for values with a comma and no quotes.'))
+    keep = [j for j in range(width) if header[j] or any(j < len(r) and r[j].strip() for r in body)]
+    names, seen = [], set()
+    for j in keep:
+        base = header[j] or _letter(j)
+        name, k = base, 1
+        while name in seen:
+            k += 1
+            name = f'{base} ({k})'
+        seen.add(name)
+        names.append(name)
+    if keep != list(range(width)) or any(len(r) != width for r in body):
+        body = [[r[j] if j < len(r) else '' for j in keep] for r in body]
+    return names, body
+
+
+def _loose(text):
+    """A number as a spreadsheet shows it: 12,000 · ₩3,000 (￦ in CP949) · 3,000원 · 12% · -1,250.5, and yes/no words as 1 and 0. A comma
+    only counts as a thousands separator in groups of three, so 1,5 (a decimal comma) is not read as 15."""
+    text = text.strip()
+    word = BOOLEANS.get(text.lower())
+    if word is not None:
+        return word
+    scale, sign = 1., ''
+    if text.endswith('%'):
+        text, scale = text[:-1].strip(), .01
+    if text[:1] in ('-', '+'):
+        sign, text = text[0], text[1:]
+    text = text.lstrip('₩￦$€£¥ ').removesuffix('원').strip()
+    if GROUPED.fullmatch(text):
+        text = text.replace(',', '')
+    try:
+        return float(sign + text) * scale
+    except ValueError:
+        return None
 
 
 def _number(value):
     try:
         number = float(value)
     except ValueError:
-        return None
+        number = _loose(value)
+        if number is None:
+            return None
     return number if np.isfinite(number) else None
 
 
@@ -100,38 +176,148 @@ def _arms(values):
     return len(levels) - 1
 
 
-def columns(header, body):
-    sample = body[:2000]
+def _levels(distinct):
+    """Codes for a treatment column written in words: the one value that names the control group (대조군, control, 미지급)
+    is 0, and the others are 1, 2, … in sorted order. None unless exactly one value reads as control."""
+    if not 2 <= len(distinct) <= MAX_TREATMENTS + 1:
+        return None
+    control = [v for v in distinct if v.lower() in CONTROL_WORDS or v.lower().startswith(('control', '대조', '통제'))]
+    if len(control) != 1:
+        return None
+    return {control[0]: 0, **{v: k + 1 for k, v in enumerate(sorted(v for v in distinct if v != control[0]))}}
+
+
+def _sample(body, size=5000):
+    """Rows spread evenly over the file, so a file sorted by group (every control row first) still shows both groups."""
+    if len(body) <= size:
+        return body
+    step = (len(body) - 1) / (size - 1)
+    return [body[round(i * step)] for i in range(size)]
+
+
+def _tokens(name):
+    return {t for t in re.split(r'[^a-z0-9]+', name.lower()) if t}
+
+
+def _named_id(name):
+    return name.lower() in ID_NAMES or bool(_tokens(name) & ID_TOKENS) or any(word in name for word in ID_KOREAN)
+
+
+def columns(header, sample):
+    """What each column holds, from a sample of its rows (see _sample)."""
     out = []
     for i, name in enumerate(header):
-        filled = [r[i].strip() for r in sample if not _blank(r[i])]
+        cells = [r[i].strip() for r in sample]
+        filled = [cell for cell in cells if not _blank(cell)]
         values = [_number(cell) for cell in filled]
         numeric = bool(filled) and all(v is not None for v in values)
         distinct = list(dict.fromkeys(filled))  # in file order
-        out.append({'name': name, 'numeric': numeric, 'binary': numeric and set(values) <= {0., 1.}, 'arms': _arms(values) if numeric else 0, 'categorical': not numeric and 1 < len(distinct) <= MAX_LEVELS,
-                    'missing': len(sample) - len(filled), 'distinct': len(distinct), 'examples': sorted(distinct) if len(distinct) <= 4 else distinct[:4]})
+        levels = None if numeric else _levels(distinct)
+        counter = numeric and len(values) >= 100 and len(distinct) == len(cells) and all(v == int(v) for v in values) and all(b > a for a, b in zip(values, values[1:]))
+        out.append({'name': name, 'numeric': numeric, 'binary': numeric and set(values) <= {0., 1.}, 'arms': _arms(values) if numeric else len(levels) - 1 if levels else 0,
+                    'levels': levels, 'categorical': not numeric and 1 < len(distinct) <= MAX_LEVELS, 'id': _named_id(name) or counter,
+                    'missing': len(cells) - len(filled), 'distinct': len(distinct), 'examples': sorted(distinct) if len(distinct) <= 4 else distinct[:4]})
     return out
 
 
-def guess(cols):
-    """A first suggestion from column names: the exact name first, then a word inside it (coupon_cost is a cost, is_treated a treatment)."""
-    def pick(names, test):
-        usable = [c for c in cols if test(c)]
-        return next((c['name'] for c in usable if c['name'].lower() in names),
-                    next((c['name'] for c in usable if set(re.split(r'[^a-z0-9]+', c['name'].lower())) & names), None))
-    cost = pick(COST_NAMES, lambda c: c['numeric'])
-    treatment = pick(TREATMENT_NAMES, lambda c: c['arms'] > 0 and c['name'] != cost)
-    outcome = pick(OUTCOME_NAMES, lambda c: c['numeric'] and c['name'] not in (treatment, cost))
-    features = [c['name'] for c in cols if (c['numeric'] or c['categorical']) and c['name'] not in (treatment, outcome, cost)
-                and c['name'].lower() not in ID_NAMES and c['distinct'] > 1]
-    return {'treatment': treatment, 'outcome': outcome, 'cost': cost, 'features': features}
+def _score(name, role):
+    """How strongly a name suggests a role: an exact English name wins, then each word that fits, less each word that points away."""
+    english = {'treatment': TREATMENT_NAMES, 'outcome': OUTCOME_NAMES, 'cost': COST_NAMES}[role]
+    if name.lower() in english:
+        return 100
+    tokens = _tokens(name)
+    hits = len(tokens & english) + sum(word in name for word in KOREAN[role])
+    away = len(tokens & {w for w in AWAY[role] if w.isascii()}) + sum(w in name for w in AWAY[role] if not w.isascii())
+    return 10 * hits - 15 * away if hits else 0
+
+
+def _cells(sample, j):
+    return [r[j].strip() for r in sample]
+
+
+def _vector(cells):
+    """Numbers of a column, NaN where a cell is blank or not a number."""
+    return np.asarray([np.nan if (v := _number(cell)) is None else v for cell in cells], dtype=np.float64)
+
+
+def _notes(cols, header, sample, mapping):
+    """Why a usable column is left out of the suggested covariates: it is an ID, it varies only among treated rows (recorded
+    after treatment, like whether the coupon was used), or it moves with the outcome (구매금액 next to 구매여부)."""
+    notes = {c['name']: ('id', tr('ID 같은 열이라 제외했어요.', 'Looks like an ID, so it is skipped.')) for c in cols if c['id']}
+    if sample is None or not mapping['treatment']:
+        return notes
+    index, by_name = {h: j for j, h in enumerate(header)}, {c['name']: c for c in cols}
+    levels = by_name[mapping['treatment']]['levels']
+    t = [levels.get(v) if levels else _number(v) for v in _cells(sample, index[mapping['treatment']])]
+    control = [i for i, v in enumerate(t) if v == 0]
+    treated = [i for i, v in enumerate(t) if v is not None and v > 0]
+    y = _vector(_cells(sample, index[mapping['outcome']])) if mapping['outcome'] else None
+    roles = (mapping['treatment'], mapping['outcome'], mapping['cost'])
+    for c in cols:
+        name = c['name']
+        if name in notes or name in roles or not (c['numeric'] or c['categorical']):
+            continue
+        cells = _cells(sample, index[name])
+        before = {cells[i] for i in control if not _blank(cells[i])}
+        if len(before) <= 1 and control and treated:
+            base = next(iter(before), '')
+            differs = sum(1 for i in treated if (cells[i] if not _blank(cells[i]) else '') != base) / len(treated)
+            if differs >= .02 and differs * len(control) >= 10:  # a pre-treatment value would differ in about this many control rows too
+                notes[name] = ('after', tr('대조군에서는 값이 모두 같아요. 쿠폰 사용 여부처럼 처치 뒤에 생긴 값이면 결과가 부풀려져서 제외했어요.',
+                                           'Every control row has the same value. A value recorded after treatment, like whether the coupon was used, inflates the result, so it is skipped.'))
+                continue
+        if y is None or not c['numeric']:
+            continue
+        x = _vector(cells)
+        ok = ~np.isnan(x) & ~np.isnan(y)
+        xs, ys = x[ok], y[ok]
+        if len(xs) < 100 or np.ptp(xs) == 0 or np.ptp(ys) == 0:
+            continue
+        pos = ys != 0
+        same_zeros = pos.sum() >= 20 and (~pos).sum() >= 20 and (xs[pos] != 0).mean() >= .95 and (xs[~pos] == 0).mean() >= .95
+        if abs(np.corrcoef(xs, ys)[0, 1]) >= .9 or same_zeros:
+            notes[name] = ('outcome', tr(f'결과 열 {mapping["outcome"]}과 거의 같이 움직여요. 결과를 미리 알려 주는 값이면 비교가 틀려져서 제외했어요.',
+                                         f'It moves almost exactly with the outcome {mapping["outcome"]}. A value that gives the outcome away breaks the comparison, so it is skipped.'))
+    return notes
+
+
+def guess(cols, header=None, sample=None):
+    """A first suggestion for each role. A name decides treatment, outcome and cost: an exact English name, a word inside
+    it (coupon_cost is a cost, is_treated a treatment) or a Korean word anywhere in it (쿠폰지급여부 is a treatment). The
+    covariates are the other usable columns, less IDs and, given the rows, values recorded after treatment or that move
+    with the outcome. Each column left out that way gets a `note` saying why."""
+    def pick(role, test, taken=()):
+        best, top = None, 0
+        for c in cols:
+            score = _score(c['name'], role) if c['name'] not in taken and test(c) else 0
+            score += score > 0 and role == 'outcome' and c['binary']  # 구매여부 before 구매금액: a conversion is the usual outcome
+            if score > top:
+                best, top = c['name'], score
+        return best
+    cost = pick('cost', lambda c: c['numeric'])
+    treatment = pick('treatment', lambda c: c['arms'] > 0, (cost,))
+    outcome = pick('outcome', lambda c: c['numeric'], (treatment, cost))
+    mapping = {'treatment': treatment, 'outcome': outcome, 'cost': cost}
+    notes = _notes(cols, header, sample, mapping)
+    for c in cols:
+        if c['name'] in notes:
+            kind, text = notes[c['name']]
+            c['note'] = {'kind': kind, 'text': text}
+    mapping['features'] = [c['name'] for c in cols if (c['numeric'] or c['categorical']) and c['name'] not in (treatment, outcome, cost)
+                           and c['name'] not in notes and c['distinct'] > 1]
+    levels = next((c['levels'] for c in cols if c['name'] == treatment), None)
+    if levels:
+        mapping['levels'] = levels
+    return mapping
 
 
 def inspect(text):
     """Column summary, a suggested mapping and a preview, for the upload screen."""
     header, body = read(text)
-    cols = columns(header, body)
-    return {'rows': len(body), 'header': header, 'columns': cols, 'preview': body[:8], 'mapping': guess(cols), 'minRows': MIN_ROWS}
+    sample = _sample(body)
+    cols = columns(header, sample)
+    mapping = guess(cols, header, sample)
+    return {'rows': len(body), 'header': header, 'columns': cols, 'preview': body[:8], 'mapping': mapping, 'minRows': MIN_ROWS}
 
 
 def _required(name, role, cells):
@@ -147,7 +333,7 @@ def _feature(name, cells):
     if not filled:
         raise ValueError(tr(f'공변량 열 {name}이 비어 있어요.', f'The covariate column {name} is empty.'))
     if all(_number(cell) is not None for cell in filled):
-        column = np.asarray([np.nan if _blank(cell) else float(cell) for cell in cells], dtype=np.float64)
+        column = np.asarray([np.nan if _blank(cell) else _number(cell) for cell in cells], dtype=np.float64)
         gaps = np.isnan(column)
         column[gaps] = np.median(column[~gaps])
         return [name], column[:, None], int(gaps.sum())
@@ -173,7 +359,9 @@ def parse(text, mapping=None):
     header, body = read(text)
     if len(body) < MIN_ROWS:
         raise ValueError(tr(f'{MIN_ROWS:,}행 이상이 필요해요. 지금은 {len(body):,}행이에요.', f'At least {MIN_ROWS:,} rows are needed; this has {len(body):,}.'))
-    mapping = mapping or guess(columns(header, body))
+    if not mapping:
+        sample = _sample(body)
+        mapping = guess(columns(header, sample), header, sample)
     index = {h: k for k, h in enumerate(header)}
     for role in ('treatment', 'outcome'):
         if mapping.get(role) not in index:
@@ -182,7 +370,16 @@ def parse(text, mapping=None):
     if not chosen:
         raise ValueError(tr('공변량 열을 하나 이상 선택해 주세요.', 'Pick at least one covariate column.'))
     cells = lambda column: [r[index[column]] for r in body]  # noqa: E731
-    treatment = _required(mapping['treatment'], tr('처치', 'treatment'), cells(mapping['treatment']))
+    levels = mapping.get('levels')
+    if levels:  # a treatment written in words: 대조군 → 0, 실험군 → 1
+        words = [cell.strip() for cell in cells(mapping['treatment'])]
+        unknown = next((w for w in words if w not in levels), None)
+        if unknown is not None:
+            raise ValueError(tr(f'처치 열 {mapping["treatment"]}에 ‘{unknown}’ 값이 있어요. {", ".join(levels)} 중 하나여야 해요.',
+                                f'The treatment column {mapping["treatment"]} has the value ‘{unknown}’. It must be one of {", ".join(levels)}.'))
+        treatment = np.asarray([levels[w] for w in words], dtype=np.float64)
+    else:
+        treatment = _required(mapping['treatment'], tr('처치', 'treatment'), cells(mapping['treatment']))
     if not _arms(np.unique(treatment).tolist()):
         raise ValueError(tr(f'처치 열 {mapping["treatment"]}은 0(대조군)과 1, 2처럼 0부터 이어지는 정수여야 해요. 처치는 {MAX_TREATMENTS}종류까지 쓸 수 있어요.', f'The treatment column {mapping["treatment"]} must hold consecutive integers from 0 (control): 1, 2, and so on, up to {MAX_TREATMENTS} treatments.'))
     t, y = treatment.astype(np.int64), _required(mapping['outcome'], tr('결과', 'outcome'), cells(mapping['outcome']))
@@ -195,7 +392,7 @@ def parse(text, mapping=None):
         if gaps:
             filled[column] = gaps
     X = np.hstack(parts)
-    used = {'treatment': mapping['treatment'], 'outcome': mapping['outcome'], 'cost': mapping.get('cost'), 'features': chosen}
+    used = {'treatment': mapping['treatment'], 'outcome': mapping['outcome'], 'cost': mapping.get('cost'), 'features': chosen, **({'levels': levels} if levels else {})}
     if t.min() == t.max():
         raise ValueError(tr('처치군과 대조군이 모두 필요해요.', 'Both a treatment and a control group are needed.'))
     return SimpleNamespace(fingerprint=fingerprint(body), X=X, t=t, y=y, cost=cost, features=features, mapping=used, filled=filled)

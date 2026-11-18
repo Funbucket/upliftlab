@@ -1,8 +1,8 @@
 // The setup console: a status line of the current settings, then data, models, and the selection rule with its one number, and
 // the start bar. Cycles, the Explore share, the base model and the seed fold under 고급 설정 with working defaults.
-import {$, esc, int, share, duration, go, BRIEF, MAX_ALGORITHMS, SELECTION, BUDGET_MODES} from '../lib.js?v=0.26.6';
-import {state, subscribe, dataset, datasetReady, running, startRun, estimate, algorithm, unavailable, setDraft, selectAlgorithm, planOf, wordsFor} from '../store.js?v=0.26.6';
-import {EN, tr} from '../i18n.js?v=0.26.6';
+import {$, esc, int, share, duration, go, BRIEF, MAX_ALGORITHMS, SELECTION, BUDGET_MODES} from '../lib.js?v=0.27.0';
+import {state, subscribe, dataset, datasetReady, running, startRun, estimate, algorithm, unavailable, setDraft, selectAlgorithm, planOf, wordsFor} from '../store.js?v=0.27.0';
+import {EN, tr} from '../i18n.js?v=0.27.0';
 
 const CYCLES = [4, 6, 8, 10, 12];
 const worst = d => { const levels = (d.stored?.profile?.checks || []).map(c => c.level); return levels.includes('bad') ? 'bad' : levels.includes('warn') ? 'warn' : null; };
@@ -40,10 +40,10 @@ export function launcherPanel(el) {
       const on = draft.dataset === d.id, ready = datasetReady(d), flag = worst(d), rows = d.kind === 'public' ? d.rows : d.stored?.profile?.rows, W = wordsFor(d.id);
       return `<button type="button" role="radio" class="cs-tile" data-dataset="${esc(d.id)}" aria-checked="${on}" ${ready ? '' : 'disabled'}>
         <b>${esc(d.name)}${d.id === 'public/criteo' ? `<em class="tag tag-solid">${tr('추천', 'Default')}</em>` : ''}${flag ? `<em class="tag ${flag === 'bad' ? 'tag-red' : 'tag-amber'}">${EN ? (flag === 'bad' ? 'Check failed' : 'Check warning') : `검사 ${flag === 'bad' ? '오류' : '경고'}`}</em>` : ''}</b>
-        <span class="cs-stats"><span><strong class="fig">${int(rows)}</strong>${d.kind === 'public' ? tr('사용자', 'users') : tr('행', 'rows')}</span><span><strong>${esc(W.outcome)}</strong>${tr('결과', 'outcome')}</span>${d.kind === 'public' ? `<span><strong>${tr('공개', 'Public')}</strong>${tr('무작위 실험', 'randomized')}</span>` : `<span><strong>${tr('내 CSV', 'My CSV')}</strong>${tr('업로드', 'uploaded')}</span>`}</span></button>`;
+        <span class="cs-stats"><span><strong class="fig">${int(rows)}</strong>${d.kind === 'public' ? tr('사용자', 'users') : tr('행', 'rows')}</span><span><strong>${esc(W.outcome)}</strong>${tr('결과', 'outcome')}</span>${d.kind === 'public' ? `<span><strong>${tr('공개', 'Public')}</strong>${tr('무작위 실험', 'randomized')}</span>` : `<span><strong>${tr('내 파일', 'My file')}</strong>${tr('업로드', 'uploaded')}</span>`}</span></button>`;
     };
     $('#l-data', el).innerHTML = list.map(tile).join('')
-      + `<a class="cs-tile cs-add" href="#/data?upload=1"><b>${tr('+ 내 CSV 올리기', '+ Upload my CSV')}</b><small>${tr('처치를 무작위로 나눈 실험 로그 · 예시 파일로 먼저 해 볼 수 있어요', 'A randomized experiment log · try the example file first')}</small></a>`
+      + `<a class="cs-tile cs-add" href="#/data?upload=1"><b>${tr('+ 내 데이터 올리기', '+ Upload my data')}</b><small>${tr('처치를 무작위로 나눈 실험 로그 · 엑셀이나 CSV · 예시 파일로 먼저 해 볼 수 있어요', 'A randomized experiment log · Excel or CSV · try the example file first')}</small></a>`
       + `<a class="step-link" href="#/data/${encodeURIComponent(draft.dataset)}">${tr('고른 데이터 자세히 보기', 'About the selected data')}</a>`;
   }
   function models() {

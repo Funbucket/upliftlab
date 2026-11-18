@@ -1,6 +1,6 @@
 // One call interface, two places to run the Python engine: the browser (Pyodide worker) or the local edition server.
-import {ENGINE_FILES} from './engine-files.js?v=0.26.6';
-import {tr} from './i18n.js?v=0.26.6';
+import {ENGINE_FILES} from './engine-files.js?v=0.27.0';
+import {tr} from './i18n.js?v=0.27.0';
 
 export const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/';
 const WORKER = `
@@ -53,7 +53,10 @@ self.onmessage = async ({data}) => {
 function unwrap(text) {
   const out = typeof text === 'string' ? JSON.parse(text) : text;
   if (out.ok) return out.result;
-  const error = new Error(out.error || tr('엔진 오류', 'Engine error')); error.trace = out.trace || ''; throw error;
+  // The engine raises these three with a sentence written for the screen, so the exception name is left off. Any other
+  // exception is a bug and keeps its name.
+  const message = (out.error || tr('엔진 오류', 'Engine error')).replace(/^(ValueError|LookupError|FileNotFoundError): /, '');
+  const error = new Error(message); error.trace = out.trace || ''; throw error;
 }
 
 // Calls run strictly in order, so a progress event always belongs to the call at the head of the queue.

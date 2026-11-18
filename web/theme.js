@@ -1,7 +1,7 @@
 // Light or dark: the saved choice, else the system setting, followed live. The inline script in index.html sets the first
 // value before the page paints. Choosing the theme the system already has clears the saved choice, so the page follows the
 // system again.
-import {paletteCss} from './lib.js?v=0.26.6';
+import {paletteCss} from './lib.js?v=0.27.0';
 
 const KEY = 'upliftlab.theme', THEMES = ['light', 'dark'], media = matchMedia('(prefers-color-scheme: light)');
 const saved = () => { try { const t = localStorage.getItem(KEY); return THEMES.includes(t) ? t : null; } catch { return null; } };

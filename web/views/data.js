@@ -1,24 +1,45 @@
 // Datasets: the public Criteo sample and uploaded logs, with column mapping, validity checks and a profile.
-import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.26.6';
-import {state, subscribe, dataset, datasetReady, inspectFile, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.26.6';
-import {EN, LOCALE, tr} from '../i18n.js?v=0.26.6';
+import {$, esc, int, fix, share, go, download} from '../lib.js?v=0.27.0';
+import {state, subscribe, dataset, datasetReady, inspectFile, readWorkbook, sampleFile, addDataset, fetchPublic, removeDataset, profileOf, storage} from '../store.js?v=0.27.0';
+import {EN, LOCALE, tr} from '../i18n.js?v=0.27.0';
 
 const ROLES = EN ? [['feature', 'Covariate'], ['treatment', 'Treatment'], ['outcome', 'Outcome'], ['cost', 'Cost'], ['skip', 'Skip']] : [['feature', '공변량'], ['treatment', '처치'], ['outcome', '결과'], ['cost', '비용'], ['skip', '제외']];
 const LEVELS = EN ? {ok: ['Pass', 'check-ok'], warn: ['Warning', 'check-warn'], bad: ['Error', 'check-bad']} : {ok: ['통과', 'check-ok'], warn: ['경고', 'check-warn'], bad: ['오류', 'check-bad']};
 const MAX_MB = 100;
+const EXCEL = /\.(xlsx|xlsm)$/i, EXTENSION = /\.(csv|tsv|txt|xlsx|xlsm)$/i;
+const ACCEPT = '.xlsx,.xlsm,.csv,.tsv,.txt,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+// CSV bytes as text, the way the command line reads them (tables.decode): UTF-16 with a byte order mark, UTF-8, else
+// CP949, which Korean Excel uses when it saves a plain CSV.
+async function fileText(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder('utf-16le').decode(bytes);
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder('utf-16be').decode(bytes);
+  try { return new TextDecoder('utf-8', {fatal: true}).decode(bytes); } catch { return new TextDecoder('euc-kr').decode(bytes); }
+}
+const base64 = file => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => { const url = String(reader.result); resolve(url.slice(url.indexOf(',') + 1)); };
+  reader.onerror = () => reject(reader.error);
+  reader.readAsDataURL(file);
+});
+// Which roles a column can take: a treatment needs 0..K codes (numbers or words like 대조군/실험군), an outcome and a cost
+// need numbers, and a covariate needs numbers or a few distinct words.
+const allowed = (c, role) => role === 'skip' || (role === 'treatment' ? c.arms > 0 : role === 'feature' ? c.numeric || c.categorical : c.numeric);
+const levelText = levels => Object.entries(levels).map(([word, code]) => `${word} = ${code}`).join(', ');
 
 export function dataView(root, {id, query}) {
   const d = dataset(id) || state.datasets[0];
   let upload = query.get('upload') ? {stage: 'pick'} : null;
-  root.innerHTML = `<section class="page data"><a class="back" href="#/">${tr('← 시뮬레이션', '← Simulation')}</a><header class="page-head row"><div><h1>${tr('데이터셋', 'Datasets')}</h1><p>${tr('처치를 무작위로 나눈 실험 로그예요. 기록된 처치와 결과를 사이클별로 나눠 replay해요.', 'Randomized experiment logs. The recorded treatments and outcomes are split into cycles and replayed.')}</p></div><button type="button" class="btn btn-primary" data-act="upload">${tr('CSV 업로드', 'Upload CSV')}</button></header>
+  root.innerHTML = `<section class="page data"><a class="back" href="#/">${tr('← 시뮬레이션', '← Simulation')}</a><header class="page-head row"><div><h1>${tr('데이터셋', 'Datasets')}</h1><p>${tr('처치를 무작위로 나눈 실험 로그예요. 기록된 처치와 결과를 사이클별로 나눠 replay해요.', 'Randomized experiment logs. The recorded treatments and outcomes are split into cycles and replayed.')}</p></div><button type="button" class="btn btn-primary" data-act="upload">${tr('파일 업로드', 'Upload file')}</button></header>
     <div id="upload"></div><div class="data-layout"><nav class="card data-nav" id="data-nav" aria-label="${tr('데이터셋 목록', 'Datasets')}"></nav><div class="data-main" id="data-detail"></div></div>
-    <input type="file" accept=".csv,text/csv,text/plain" id="file" hidden></section>`;
+    <input type="file" accept="${ACCEPT}" id="file" hidden></section>`;
 
   function nav() {
     const groups = [[tr('공개 실험', 'Public experiments'), 'public'], [tr('업로드', 'Uploaded'), 'upload']];
     $('#data-nav', root).innerHTML = groups.map(([title, kind]) => {
       const list = state.datasets.filter(x => x.kind === kind);
-      return `<h3 class="group">${title}<span>${list.length}</span></h3>${list.length ? list.map(x => `<a href="#/data/${encodeURIComponent(x.id)}" class="${x.id === d.id ? 'is-on' : ''}"><b>${esc(x.name)}</b><small>${x.kind === 'synthetic' ? tr('참값 있음', 'with truth') : x.bundled ? (EN ? `${int(x.rows)}-row sample` : `표본 ${int(x.rows)}행`) : x.stored ? `${int(x.stored.profile?.rows)}${tr('행', ' rows')}` : x.kind === 'public' ? tr('업로드 전', 'not uploaded') : ''}</small></a>`).join('') : `<p class="muted small pad">${tr('업로드한 CSV가 여기에 표시돼요.', 'CSVs you upload appear here.')}</p>`}`;
+      return `<h3 class="group">${title}<span>${list.length}</span></h3>${list.length ? list.map(x => `<a href="#/data/${encodeURIComponent(x.id)}" class="${x.id === d.id ? 'is-on' : ''}"><b>${esc(x.name)}</b><small>${x.kind === 'synthetic' ? tr('참값 있음', 'with truth') : x.bundled ? (EN ? `${int(x.rows)}-row sample` : `표본 ${int(x.rows)}행`) : x.stored ? `${int(x.stored.profile?.rows)}${tr('행', ' rows')}` : x.kind === 'public' ? tr('업로드 전', 'not uploaded') : ''}</small></a>`).join('') : `<p class="muted small pad">${tr('업로드한 파일이 여기에 표시돼요.', 'Files you upload appear here.')}</p>`}`;
     }).join('') + (storage.persistent ? '' : `<p class="muted small pad">${tr('이 브라우저는 저장소를 쓸 수 없어 업로드한 파일이 새로고침하면 사라져요.', 'This browser has no storage, so uploaded files disappear on reload.')}</p>`);
   }
   function fields() {
@@ -26,7 +47,7 @@ export function dataView(root, {id, query}) {
     if (d.kind === 'synthetic') return [[T, d.treatment], [Y, d.outcome], [C, d.cost], [X, d.features.join(', ')]];
     const m = d.stored?.mapping;
     if (d.kind === 'public') return [[T, d.treatment], [Y, d.outcome], [C, d.cost], [X, (m?.features || d.mapping?.features)?.join(', ') || tr('업로드 후 표시', 'shown after upload')]];
-    return [[T, m?.treatment], [Y, m?.outcome], [C, m?.cost || tr('열 없음 · 처치 1건당 1', 'no column · 1 per treatment')], [X, m?.features?.join(', ')]];
+    return [[T, m?.treatment && (m.levels ? `${m.treatment} (${levelText(m.levels)})` : m.treatment)], [Y, m?.outcome], [C, m?.cost || tr('열 없음 · 처치 1건당 1', 'no column · 1 per treatment')], [X, m?.features?.join(', ')]];
   }
   async function detail() {
     const ready = datasetReady(d), loaded = d.kind === 'synthetic' || d.stored || d.bundled;
@@ -55,45 +76,56 @@ export function dataView(root, {id, query}) {
     const u = upload;
     if (u.stage === 'pick' || u.stage === 'reading') {
       const busy = u.stage === 'reading';
-      box.innerHTML = `<section class="card drop ${busy ? 'is-busy' : ''}" id="drop"><b>${busy ? esc(u.note || tr('파일 읽는 중…', 'Reading the file…')) : tr('CSV 파일을 끌어다 놓거나 선택해 주세요', 'Drop a CSV file here, or choose one')}</b><p>${tr('처치를 무작위로 배정한 실험 로그여야 하고, 1,000행 이상이어야 해요. 열 이름은 자유예요. 올린 뒤 열마다 역할을 골라요.', 'It must be a randomized experiment log with at least 1,000 rows. Any column names work; you pick each column’s role after uploading.')}</p>
+      box.innerHTML = `<section class="card drop ${busy ? 'is-busy' : ''}" id="drop"><b>${busy ? esc(u.note || tr('파일 읽는 중…', 'Reading the file…')) : tr('엑셀이나 CSV 파일을 끌어다 놓거나 선택해 주세요', 'Drop an Excel or CSV file here, or choose one')}</b><p>${tr('처치를 무작위로 배정한 실험 로그여야 하고, 1,000행 이상이어야 해요. 열 이름은 자유예요. 열마다 역할을 추천하고, 올린 뒤 바꿀 수 있어요.', 'It must be a randomized experiment log with at least 1,000 rows. Any column names work: each column’s role is suggested, and you can change it after uploading.')}</p>
         <div class="row-actions"><button type="button" class="btn btn-primary" data-act="choose" ${busy ? 'disabled' : ''}>${tr('파일 선택', 'Choose file')}</button><button type="button" class="btn btn-quiet" data-act="sample" ${busy ? 'disabled' : ''}>${tr('예시 파일로 해 보기', 'Try the example file')}</button><button type="button" class="btn btn-text" data-act="cancel">${tr('닫기', 'Close')}</button></div>${u.error ? `<p class="error-text">${esc(u.error)}</p>` : ''}
         <div class="fmt"><div class="fmt-title"><span>${tr('파일 형식', 'File format')}</span><button type="button" class="btn-link" data-act="sample-download" ${busy ? 'disabled' : ''}>${tr('예시 파일 내려받기', 'Download the example file')}</button></div>
         <div class="table-wrap"><table class="table">${EN ? `<thead><tr><th>Example column</th><th>Role</th><th>Values</th></tr></thead><tbody>
-          <tr><td class="mono">treatment</td><td><b>Treatment</b> · required</td><td>0 = control, 1 = treated (a coupon, for example). It must be assigned at random. Several treatments: 1, 2, 3…</td></tr>
-          <tr><td class="mono">retained</td><td><b>Outcome</b> · required</td><td>What you want more of: conversion, purchase, retention. 0/1 or an amount</td></tr>
+          <tr><td class="mono">treatment, group</td><td><b>Treatment</b> · required</td><td>0 = control, 1 = treated (a coupon, for example), or words like control/test and Y/N. It must be assigned at random. Several treatments: 1, 2, 3…</td></tr>
+          <tr><td class="mono">retained</td><td><b>Outcome</b> · required</td><td>What you want more of: conversion, purchase, retention. 0/1, Y/N or an amount</td></tr>
           <tr><td class="mono">coupon_cost</td><td><b>Cost</b> · optional</td><td>What the treatment cost, such as coupon spend. Without it every treatment costs 1</td></tr>
           <tr><td class="mono">visit_freq, days_since_last …</td><td><b>Covariates</b> · one or more</td><td>User features measured <em>before</em> treatment. Text columns become categories</td></tr>
-          <tr><td class="mono">user_id</td><td>Skip</td><td>ID columns don’t go into the model</td></tr></tbody>` : `<thead><tr><th>예시 열 이름</th><th>역할</th><th>값</th></tr></thead><tbody>
-          <tr><td class="mono">treatment</td><td><b>처치</b> · 필수</td><td>0 = 대조군, 1 = 처치(쿠폰 지급 등). 무작위로 정한 값이어야 해요. 처치가 여러 종류면 1, 2, 3…</td></tr>
-          <tr><td class="mono">retained</td><td><b>결과</b> · 필수</td><td>전환, 구매, 리텐션처럼 늘리고 싶은 값. 0/1이나 금액</td></tr>
-          <tr><td class="mono">coupon_cost</td><td><b>비용</b> · 선택</td><td>쿠폰 사용액처럼 처치로 쓴 비용. 없으면 처치 1건당 1로 계산해요</td></tr>
-          <tr><td class="mono">visit_freq, days_since_last …</td><td><b>공변량</b> · 1개 이상</td><td>처치 <em>전에</em> 측정한 사용자 특성. 문자 열은 범주로 바꿔요</td></tr>
-          <tr><td class="mono">user_id</td><td>제외</td><td>ID 열은 모델에 넣지 않아요</td></tr></tbody>`}</table></div></div></section>`;
+          <tr><td class="mono">user_id</td><td>Skip</td><td>ID columns are left out of the model automatically</td></tr></tbody>` : `<thead><tr><th>예시 열 이름</th><th>역할</th><th>값</th></tr></thead><tbody>
+          <tr><td class="mono">쿠폰지급, 그룹</td><td><b>처치</b> · 필수</td><td>0 = 대조군, 1 = 처치(쿠폰 지급 등). ‘대조군/실험군’이나 Y/N으로 적어도 돼요. 무작위로 정한 값이어야 해요. 처치가 여러 종류면 1, 2, 3…</td></tr>
+          <tr><td class="mono">구매여부</td><td><b>결과</b> · 필수</td><td>전환, 구매, 리텐션처럼 늘리고 싶은 값. 0/1, Y/N이나 금액</td></tr>
+          <tr><td class="mono">쿠폰비용</td><td><b>비용</b> · 선택</td><td>쿠폰 사용액처럼 처치로 쓴 비용. 없으면 처치 1건당 1로 계산해요</td></tr>
+          <tr><td class="mono">최근방문일수, 회원등급 …</td><td><b>공변량</b> · 1개 이상</td><td>처치 <em>전에</em> 측정한 사용자 특성. 문자 열은 범주로 바꿔요</td></tr>
+          <tr><td class="mono">고객ID</td><td>제외</td><td>ID 열은 자동으로 모델에서 빼요</td></tr></tbody>`}</table></div></div></section>`;
       return;
     }
     const info = u.info, roleOf = name => (u.mapping.treatment === name ? 'treatment' : u.mapping.outcome === name ? 'outcome' : u.mapping.cost === name ? 'cost' : u.mapping.features.includes(name) ? 'feature' : 'skip');
-    const problems = validate(u.mapping, info);
-    box.innerHTML = `<section class="card mapping"><div class="card-head"><div><h2>${esc(u.file)}</h2><p>${EN ? `${int(info.rows)} rows · ${info.header.length} columns${info.rows < info.minRows ? ` · <span class="red">needs at least ${int(info.minRows)} rows</span>` : ''}` : `${int(info.rows)}행 · 열 ${info.header.length}개${info.rows < info.minRows ? ` · <span class="red">${int(info.minRows)}행 이상 필요</span>` : ''}`}</p></div><button type="button" class="btn btn-text" data-act="cancel">${tr('취소', 'Cancel')}</button></div>
-      ${`<div class="role-help">${EN ? '<div><b>Treatment (T)</b>0 = control, 1–K = treatment (up to 8)</div><div><b>Outcome (Yʳ)</b>value outcome</div><div><b>Cost (Yᶜ)</b>cost outcome. Without it, 1 per treatment</div><div><b>Covariates (X)</b>model input features</div>' : '<div><b>처치 (T)</b>0 = 대조군, 1~K = 처치 (8종류까지)</div><div><b>결과 (Yʳ)</b>value outcome</div><div><b>비용 (Yᶜ)</b>cost outcome. 없으면 처치 1건당 1</div><div><b>공변량 (X)</b>모델 입력 feature</div>'}</div><label class="field narrow"><span class="field-label">${tr('이름', 'Name')}</span><input type="text" class="input" maxlength="60" value="${esc(u.name)}" data-name></label>
-      <div class="table-wrap"><table class="table cols"><thead><tr><th>${tr('열', 'Column')}</th><th>${tr('값 예시', 'Examples')}</th><th>${tr('타입', 'Type')}</th><th>${tr('역할', 'Role')}</th></tr></thead><tbody>${info.columns.map(c => `<tr><td><b>${esc(c.name)}</b></td><td class="muted">${c.examples.map(esc).join(', ')}${c.distinct > 4 ? ' …' : ''}</td><td class="muted">${c.binary ? '0/1' : c.arms ? (EN ? `0–${c.arms} · ${c.arms} treatments` : `0~${c.arms} · 처치 ${c.arms}종류`) : c.numeric ? tr('숫자', 'number') : c.categorical ? tr('범주형 · one-hot 인코딩', 'categorical · one-hot encoded') : tr('문자 · 고유값 과다', 'text · too many distinct values')}${c.missing ? (EN ? ` · ${int(c.missing)} missing` : ` · 결측 ${int(c.missing)}개`) : ''}</td>
-        <td><select class="input" data-col="${esc(c.name)}">${ROLES.map(([k, t]) => `<option value="${k}" ${roleOf(c.name) === k ? 'selected' : ''} ${!c.numeric && k !== 'skip' && !(k === 'feature' && c.categorical) ? 'disabled' : ''} ${k === 'treatment' && !c.arms ? 'disabled' : ''}>${t}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`}
-      ${problems.length ? `<ul class="problems">${problems.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}${u.error ? `<p class="error-text">${esc(u.error)}</p>` : ''}
-      <div class="row-actions"><button type="button" class="btn btn-primary" data-act="add" ${problems.length || info.rows < info.minRows || u.stage === 'adding' ? 'disabled' : ''}>${u.stage === 'adding' ? tr('전처리·검사 중…', 'Preprocessing and checking…') : tr('데이터셋 추가', 'Add dataset')}</button></div></section>`;
+    const problems = validate(u.mapping, info), confirmed = u.confirm.random && u.confirm.before;
+    const sheet = u.sheet ? (EN ? ` · sheet ${esc(u.sheet)}` : ` · 시트 ${esc(u.sheet)}`) : '';
+    box.innerHTML = `<section class="card mapping"><div class="card-head"><div><h2>${esc(u.file)}</h2><p>${EN ? `${int(info.rows)} rows · ${info.header.length} columns${sheet}${info.rows < info.minRows ? ` · <span class="red">needs at least ${int(info.minRows)} rows</span>` : ''}` : `${int(info.rows)}행 · 열 ${info.header.length}개${sheet}${info.rows < info.minRows ? ` · <span class="red">${int(info.minRows)}행 이상 필요</span>` : ''}`}</p></div><button type="button" class="btn btn-text" data-act="cancel">${tr('취소', 'Cancel')}</button></div>
+      ${`<div class="role-help">${EN ? '<div><b>Treatment (T)</b>0 = control, 1–K = treatment (up to 8)</div><div><b>Outcome (Yʳ)</b>value outcome</div><div><b>Cost (Yᶜ)</b>cost outcome. Without it, 1 per treatment</div><div><b>Covariates (X)</b>model input features</div>' : '<div><b>처치 (T)</b>0 = 대조군, 1~K = 처치 (8종류까지)</div><div><b>결과 (Yʳ)</b>value outcome</div><div><b>비용 (Yᶜ)</b>cost outcome. 없으면 처치 1건당 1</div><div><b>공변량 (X)</b>모델 입력 feature</div>'}</div><div class="map-fields"><label class="field narrow"><span class="field-label">${tr('이름', 'Name')}</span><input type="text" class="input" maxlength="60" value="${esc(u.name)}" data-name></label>${u.sheets.length > 1 ? `<label class="field"><span class="field-label">${tr('시트', 'Sheet')}</span><select class="input" data-sheet>${u.sheets.map(s => `<option ${s === u.sheet ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select></label>` : ''}</div>
+      <div class="table-wrap"><table class="table cols"><thead><tr><th>${tr('열', 'Column')}</th><th>${tr('값 예시', 'Examples')}</th><th>${tr('타입', 'Type')}</th><th>${tr('역할', 'Role')}</th></tr></thead><tbody>${info.columns.map(c => `<tr><td><b>${esc(c.name)}</b>${c.note && roleOf(c.name) === 'skip' ? `<small class="col-note">${esc(c.note.text)}</small>` : ''}</td><td class="muted">${c.examples.map(esc).join(', ')}${c.distinct > 4 ? ' …' : ''}</td><td class="muted">${c.binary ? '0/1' : c.levels ? esc(levelText(c.levels)) : c.arms ? (EN ? `0–${c.arms} · ${c.arms} treatments` : `0~${c.arms} · 처치 ${c.arms}종류`) : c.numeric ? tr('숫자', 'number') : c.categorical ? tr('범주형 · one-hot 인코딩', 'categorical · one-hot encoded') : tr('문자 · 고유값 과다', 'text · too many distinct values')}${c.missing ? (EN ? ` · ${int(c.missing)} missing` : ` · 결측 ${int(c.missing)}개`) : ''}</td>
+        <td><select class="input" data-col="${esc(c.name)}">${ROLES.map(([k, t]) => `<option value="${k}" ${roleOf(c.name) === k ? 'selected' : ''} ${allowed(c, k) ? '' : 'disabled'}>${t}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`}
+      ${problems.length ? `<ul class="problems">${problems.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+      <fieldset class="confirm"><legend>${tr('추가하기 전에 확인해 주세요', 'Confirm before adding')}</legend>
+        <label><input type="checkbox" data-confirm="random" ${u.confirm.random ? 'checked' : ''}><span><b>${tr('처치를 무작위로 정했어요', 'The treatment was assigned at random')}</b>${tr('대상을 골라서 쿠폰을 준 캠페인 결과라면 비교 결과를 믿을 수 없어요.', 'If the coupon went to hand-picked users, the comparison can’t be trusted.')}</span></label>
+        <label><input type="checkbox" data-confirm="before" ${u.confirm.before ? 'checked' : ''}><span><b>${tr('공변량은 처치 전에 잰 값이에요', 'The covariates were measured before treatment')}</b>${tr('쿠폰 사용 여부처럼 처치 뒤에 생긴 값이 들어가면 효과가 부풀려져요.', 'A value recorded after treatment, like whether the coupon was used, inflates the effect.')}</span></label></fieldset>
+      ${u.error ? `<p class="error-text">${esc(u.error)}</p>` : ''}
+      <div class="row-actions"><button type="button" class="btn btn-primary" data-act="add" ${problems.length || !confirmed || info.rows < info.minRows || u.stage === 'adding' ? 'disabled' : ''}>${u.stage === 'adding' ? tr('전처리·검사 중…', 'Preprocessing and checking…') : tr('데이터셋 추가', 'Add dataset')}</button></div></section>`;
   }
-  async function read(file) {
-    if (file.size > MAX_MB * 1024 * 1024) { upload = {stage: 'pick', error: EN ? `The browser takes files up to ${MAX_MB} MB. Run larger files locally (upliftlab run --data file.csv).` : `브라우저에서는 ${MAX_MB}MB까지 업로드할 수 있어요. 더 큰 파일은 로컬에서 실행해 주세요 (upliftlab run --data file.csv).`}; uploader(); return; }
-    await load(() => file.text(), file.name, file.name.replace(/\.(csv|txt)$/i, ''));
+  // An Excel file goes to the engine as base64 and comes back as one sheet's CSV text, so the browser, the local edition
+  // and the command line read a workbook the same way. `sheet` picks another sheet of the same file.
+  async function read(file, sheet = null, name = null) {
+    if (file.size > MAX_MB * 1024 * 1024) { upload = {stage: 'pick', error: EN ? `The browser takes files up to ${MAX_MB} MB. Run larger files locally (upliftlab run --data file.xlsx).` : `브라우저에서는 ${MAX_MB}MB까지 업로드할 수 있어요. 더 큰 파일은 로컬에서 실행해 주세요 (upliftlab run --data file.xlsx).`}; uploader(); return; }
+    if (/\.xls$/i.test(file.name)) { upload = {stage: 'pick', error: tr('엑셀 97-2003 형식(.xls)은 읽지 못해요. 엑셀에서 .xlsx나 CSV로 다시 저장해 주세요.', 'Excel 97-2003 files (.xls) can’t be read. Save the file again from Excel as .xlsx or CSV.')}; uploader(); return; }
+    const excel = EXCEL.test(file.name);
+    await load(excel ? async () => readWorkbook(await base64(file), sheet) : async () => ({csv: await fileText(file)}), file.name, name ?? file.name.replace(EXTENSION, ''),
+      excel ? tr('엑셀 파일 읽는 중…', 'Reading the workbook…') : undefined, {source: file});
   }
-  // The same mapping step for a chosen file and for the example file.
-  async function load(text, fileName, name, note) {
+  // The same mapping step for a chosen file and for the example file. The example is a randomized experiment measured
+  // before the coupon, so its two confirmations start checked.
+  async function load(source, fileName, name, note, {source: file = null, confirmed = false} = {}) {
     upload = {stage: 'reading', note}; uploader();
     try {
-      const csv = await text(), info = await inspectFile(csv);
-      upload = {stage: 'map', file: fileName, name, text: csv, info, mapping: {...info.mapping, features: [...info.mapping.features]}};
+      const {csv, sheet = null, sheets = []} = await source(), info = await inspectFile(csv);
+      upload = {stage: 'map', file: fileName, source: file, sheet, sheets, name, text: csv, info, mapping: {...info.mapping, features: [...info.mapping.features]}, confirm: {random: confirmed, before: confirmed}};
     } catch (error) { upload = {stage: 'pick', error: error.message}; }
     uploader();
   }
-  const loadSample = () => load(async () => (await sampleFile()).csv, tr('upliftlab-예시-쿠폰실험.csv', 'upliftlab-example-coupon-experiment.csv'), tr('예시 쿠폰 실험', 'Example coupon experiment'), state.engine.status === 'ready' ? tr('예시 파일 만드는 중…', 'Making the example file…') : tr('엔진을 준비한 뒤 예시 파일을 만들어요…', 'The example file is made once the engine is ready…'));
+  const loadSample = () => load(async () => ({csv: (await sampleFile()).csv}), tr('upliftlab-예시-쿠폰실험.csv', 'upliftlab-example-coupon-experiment.csv'), tr('예시 쿠폰 실험', 'Example coupon experiment'), state.engine.status === 'ready' ? tr('예시 파일 만드는 중…', 'Making the example file…') : tr('엔진을 준비한 뒤 예시 파일을 만들어요…', 'The example file is made once the engine is ready…'), {confirmed: true});
   nav(); detail(); uploader();
   if (query.get('sample')) loadSample();  // from the first screen: straight to the column mapping of the example log
 
@@ -117,12 +149,22 @@ export function dataView(root, {id, query}) {
     } else if (act === 'remove' && confirm(EN ? `Delete the ‘${d.name}’ dataset? It is deleted from this browser only.` : `‘${d.name}’ 데이터셋을 삭제할까요? 이 브라우저에서만 삭제돼요.`)) { await removeDataset(d.id); if (d.kind === 'upload') go('#/data'); }
   });
   root.addEventListener('change', e => {
-    const s = e.target.closest('[data-col]'); if (!s || !upload?.mapping) return;
+    if (!upload?.mapping) return;
+    const box = e.target.closest('[data-confirm]'), sheet = e.target.closest('[data-sheet]'), s = e.target.closest('[data-col]');
+    if (box) { upload.confirm[box.dataset.confirm] = box.checked; uploader(); return; }
+    if (sheet && upload.source) {  // a sheet that holds no table keeps the current one on screen, with the reason
+      const before = upload;
+      read(upload.source, sheet.value, upload.name).then(() => { if (upload?.stage === 'pick' && upload.error) { upload = {...before, error: upload.error}; uploader(); } });
+      return;
+    }
+    if (!s) return;
     const name = s.dataset.col, role = s.value, m = upload.mapping;
     for (const k of ['treatment', 'outcome', 'cost']) if (m[k] === name) m[k] = null;
     m.features = m.features.filter(f => f !== name);
     if (role === 'feature') m.features.push(name);
     else if (role !== 'skip') { if (m[role]) m.features = m.features.filter(f => f !== m[role]); m[role] = name; }
+    const levels = upload.info.columns.find(c => c.name === m.treatment)?.levels;  // a treatment in words carries its codes
+    if (levels) m.levels = levels; else delete m.levels;
     uploader();
   });
   root.addEventListener('input', e => { if (e.target.matches('[data-name]')) upload.name = e.target.value.trim(); });

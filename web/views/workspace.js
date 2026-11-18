@@ -1,11 +1,11 @@
 // The main screen: the hero with the timing tower, the setup console, the result of the run, how a cycle works, and how to run
 // it locally. The local edition is used by people who already installed it, so it opens on the console and the result only.
-import {$, esc, go} from '../lib.js?v=0.26.6';
-import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.26.6';
-import {launcherPanel} from './launcher.js?v=0.26.6';
-import {resultsPanel} from './results.js?v=0.26.6';
-import {towerPanel, loopPanel, installPanel} from './home.js?v=0.26.6';
-import {EN, tr} from '../i18n.js?v=0.26.6';
+import {$, esc, go} from '../lib.js?v=0.27.0';
+import {state, runById, latestRun, setDraft, selectAlgorithm, dataset, datasetReady, running, startRun} from '../store.js?v=0.27.0';
+import {launcherPanel} from './launcher.js?v=0.27.0';
+import {resultsPanel} from './results.js?v=0.27.0';
+import {towerPanel, loopPanel, installPanel} from './home.js?v=0.27.0';
+import {EN, tr} from '../i18n.js?v=0.27.0';
 
 const DOCS = EN ? ['Docs', 'https://github.com/Funbucket/upliftlab#readme'] : ['사용 안내', 'https://github.com/Funbucket/upliftlab/blob/main/docs/guide.md'];
 
@@ -42,7 +42,7 @@ export function workspaceView(root, {id, query}) {
         <p class="lede">Uplift models select targets, measure the effect and retrain, cycle after cycle, as in production. The ranking adds up the outcome each one really added.</p>`
         : `<h1><span class="gauge-word">같은 예산<span class="gw" aria-hidden="true"><i></i></span></span>을 주고,<br>모델끼리 겨뤄요.</h1>
         <p class="lede">uplift 모델들이 운영처럼 대상을 고르고, 효과를 재고, 다시 학습해요. 사이클마다 실제로 늘어난 성과를 쌓아 순위를 매겨요.</p>`}
-        <div class="hero-cta"><button type="button" class="btn btn-primary btn-hero" data-scroll="setup">${tr('비교 시작', 'Start')}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><a class="btn btn-line btn-hero" href="#/data?upload=1">${tr('내 CSV로 해 보기', 'Try my CSV')}</a></div>
+        <div class="hero-cta"><button type="button" class="btn btn-primary btn-hero" data-scroll="setup">${tr('비교 시작', 'Start')}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><a class="btn btn-line btn-hero" href="#/data?upload=1">${tr('내 데이터로 해 보기', 'Try my data')}</a></div>
         <p class="hero-meta"><span>${tr('설치 없이 브라우저에서', 'Runs in your browser')}</span><span>${tr('데이터는 밖으로 안 나가요', 'Your data stays with you')}</span><span>${tr('기본 모델 6개', '6 built-in models')}</span></p></div>
       <div class="tower" id="tower" role="group" aria-label="${tr('예시 결과를 사이클마다 다시 보여 주는 순위표', 'Standings replaying the example cycle by cycle')}"></div>
     </div></section>

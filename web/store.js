@@ -1,9 +1,9 @@
 // App state: the engine, algorithms, datasets and runs. Views subscribe and re-render when something changes.
-import {ENGINE_FILES} from './engine-files.js?v=0.26.6';
-import {CATALOG, EXAMPLE} from './catalog.js?v=0.26.6';
-import {createRuntime} from './runtime.js?v=0.26.6';
-import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.26.6';
-import {EN, lang, tr} from './i18n.js?v=0.26.6';
+import {ENGINE_FILES} from './engine-files.js?v=0.27.0';
+import {CATALOG, EXAMPLE} from './catalog.js?v=0.27.0';
+import {createRuntime} from './runtime.js?v=0.27.0';
+import {load, save, MAX_ALGORITHMS} from './lib.js?v=0.27.0';
+import {EN, lang, tr} from './i18n.js?v=0.27.0';
 
 const USER_KEY = 'upliftlab.algorithms.v15', RUN_KEY = 'upliftlab.runs.v16', DRAFT_KEY = 'upliftlab.draft.v22', MAX_RUNS = 12, KEEP_TRACES = 3;
 const SETTINGS = {mode: 'quantile', budget: .4, efficiency: .2, baseLearner: 'ridge'};  // results made before these settings existed used these values
@@ -122,6 +122,7 @@ function placeDataset(m) {
 export const dataset = id => state.datasets.find(d => d.id === id);
 export const datasetReady = d => !!d && (d.kind === 'synthetic' || !!d.bundled || !!d.stored || (d.kind === 'public' && state.engine.kind === 'local'));
 export const inspectFile = text => call('inspect_csv', {csv: text});
+export const readWorkbook = (data, sheet = null) => call('read_workbook', {data, sheet});  // {csv, sheet, sheets} from an .xlsx sent as base64
 export const sampleFile = () => call('sample_csv');  // {name, csv}: an example randomized coupon experiment
 export async function addDataset({text, name, mapping}) {
   const id = 'upload/' + crypto.randomUUID().slice(0, 8);

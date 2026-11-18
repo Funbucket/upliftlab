@@ -485,6 +485,140 @@ def test_text_columns_become_features_and_blanks_are_filled():
         datasets.parse(text.replace(',1,0,note 5', ',,0,note 5').replace(',0,0,note 5', ',,0,note 5').replace(',1,1,note 5', ',,1,note 5').replace(',0,1,note 5', ',,1,note 5'), {'treatment': 't', 'outcome': 'y', 'features': ['visits']})
 
 
+def korean_log(n=3000, seed=1, sort=False):
+    """An export from a Korean CRM: Korean column names, the group in words, Y/N outcomes, amounts with commas, an ID, an
+    amount that comes with the purchase and a flag that exists only for coupon holders."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n):
+        treated = rng.random() < .5
+        days, total, grade = int(rng.integers(0, 90)), int(rng.integers(0, 500000)), ['골드', '실버', '일반'][int(rng.integers(0, 3))]
+        bought = rng.random() < .1 + .1 * treated * (days < 30)
+        used = treated and rng.random() < .6
+        rows.append([f'C{i + 1:05d}', '실험군' if treated else '대조군', 'Y' if bought else 'N', f'"{int(rng.integers(10000, 90000)) if bought else 0:,}"',
+                     f'"₩{3000 * used:,}"', str(days), f'"{total:,}"', grade, 'O' if used else 'X'])
+    if sort:
+        rows.sort(key=lambda r: r[1] != '대조군')  # every control row first, as a file sorted by group
+    header = '고객ID,그룹,구매여부,구매금액,쿠폰비용,최근방문일수,누적구매액,회원등급,쿠폰사용여부'
+    return '\n'.join([header] + [','.join(r) for r in rows]) + '\n'
+
+
+def xlsx(sheets, hidden=()):
+    """A minimal .xlsx written with the standard library: {sheet name: rows}. Text goes to the shared strings, True and False
+    become boolean cells, None stays empty, and a string starting with # becomes an error cell."""
+    import zipfile
+    from xml.sax.saxutils import escape
+    strings, out = [], io.BytesIO()
+
+    def cell(ref, value):
+        if value is None:
+            return ''
+        if isinstance(value, bool):
+            return f'<c r="{ref}" t="b"><v>{int(value)}</v></c>'
+        if isinstance(value, (int, float)):
+            return f'<c r="{ref}"><v>{value}</v></c>'
+        if value.startswith('#'):
+            return f'<c r="{ref}" t="e"><v>{escape(value)}</v></c>'
+        strings.append(value)
+        return f'<c r="{ref}" t="s"><v>{len(strings) - 1}</v></c>'
+    letters = lambda j: chr(65 + j)  # noqa: E731
+    ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+    with zipfile.ZipFile(out, 'w') as z:
+        names = list(sheets)
+        state = {n: ' state="hidden"' if n in hidden else '' for n in names}
+        z.writestr('xl/workbook.xml', f'<workbook {ns}><sheets>' + ''.join(f'<sheet name="{escape(n)}" sheetId="{k + 1}" r:id="rId{k + 1}"{state[n]}/>' for k, n in enumerate(names)) + '</sheets></workbook>')
+        z.writestr('xl/_rels/workbook.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + ''.join(f'<Relationship Id="rId{k + 1}" Type="worksheet" Target="worksheets/sheet{k + 1}.xml"/>' for k in range(len(names))) + '</Relationships>')
+        for k, n in enumerate(names):
+            rows = ''.join(f'<row r="{i + 1}">' + ''.join(cell(f'{letters(j)}{i + 1}', v) for j, v in enumerate(r)) + '</row>' for i, r in enumerate(sheets[n]))
+            z.writestr(f'xl/worksheets/sheet{k + 1}.xml', f'<worksheet {ns}><sheetData>{rows}</sheetData></worksheet>')
+        z.writestr('xl/sharedStrings.xml', f'<sst {ns}>' + ''.join(f'<si><t>{escape(s)}</t></si>' for s in strings) + '</sst>')
+    return out.getvalue()
+
+
+def test_a_csv_saved_from_excel_is_tidied_and_its_numbers_read():
+    from upliftlab import tables
+    assert [datasets._number(v) for v in ['12,000', '₩3,000', '￦3,000', '3,000원', '12%', '-1,250.5', 'Y', 'N', 'TRUE', '아니오', 'O']] == [12000, 3000, 3000, 3000, .12, -1250.5, 1, 0, 1, 0, 1]
+    assert datasets._number('1,5') is None and datasets._number('12,34') is None, 'a decimal comma is not a thousands separator'
+    header, body = datasets.read('10월 쿠폰 실험\n\nid,t,,y,y,\n1,0,,1,2,\n2,1,x,0,3,\n합계,1,,1,5,\n')
+    assert header == ['id', 't', 'C', 'y', 'y (2)'] and body == [['1', '0', '', '1', '2'], ['2', '1', 'x', '0', '3']], 'title, empty column and total row go; a nameless column is named by its letter'
+    with pytest.raises(ValueError, match='값이 많은'):
+        datasets.read('a,b\n1,2,3\n')
+    text = korean_log(1200)
+    for data in (text.replace('₩', '￦').encode('cp949'), text.encode('utf-8-sig'), text.encode('utf-16')):
+        assert tables.decode(data).replace('￦', '₩') == text, 'Korean Excel’s CSV (CP949), UTF-8 with a BOM and Unicode text'
+
+
+def test_korean_column_names_get_their_roles_and_risky_columns_are_left_out():
+    seen = call('inspect_csv', csv=korean_log(sort=True))
+    assert seen['mapping'] == {'treatment': '그룹', 'outcome': '구매여부', 'cost': '쿠폰비용', 'features': ['최근방문일수', '누적구매액', '회원등급'], 'levels': {'대조군': 0, '실험군': 1}}
+    notes = {c['name']: c.get('note', {}).get('kind') for c in seen['columns']}
+    assert notes['고객ID'] == 'id' and notes['구매금액'] == 'outcome' and notes['쿠폰사용여부'] == 'after' and notes['누적구매액'] is None
+    assert '처치 뒤' in next(c for c in seen['columns'] if c['name'] == '쿠폰사용여부')['note']['text']
+    added = call('add_dataset', id='upload/korean', csv=korean_log(sort=True), name='쿠폰실험', mapping=seen['mapping'])
+    assert added['mapping']['levels'] == {'대조군': 0, '실험군': 1} and 0.45 < added['profile']['treatedShare'] < 0.55 and added['profile']['ate'] > 0
+    assert added['profile']['costT'] > 1000, 'costs written as ₩3,000 are read as numbers'
+    with pytest.raises(ValueError, match='‘보류’'):
+        datasets.parse(korean_log().replace(',대조군,', ',보류,', 1), seen['mapping'])
+    english = call('inspect_csv', csv='customer_no,group,purchased,last_order_days\n' + '\n'.join(f'{i},{["control", "test"][i % 2]},{i % 3 == 0:d},{i % 40}' for i in range(1500)))['mapping']
+    assert english['treatment'] == 'group' and english['levels'] == {'control': 0, 'test': 1} and english['features'] == ['last_order_days']
+
+
+def test_an_excel_workbook_reads_like_the_same_table_in_csv(tmp_path):
+    import base64
+    import csv
+    from upliftlab import tables
+    rows = list(csv.reader(io.StringIO(korean_log(1500))))
+    cells = [rows[0]] + [[r[0], r[1], r[2] == 'Y', int(r[3].replace(',', '')), int(r[4].strip('₩').replace(',', '')), int(r[5]), int(r[6].replace(',', '')), r[7], r[8]] for r in rows[1:]]
+    data = xlsx({'설명': [['10월 쿠폰 실험'], ['담당: 마케팅팀']], '숨김': [['a', 'b'], [1, 2], [3, 4]], '데이터': [['10월 쿠폰 실험 원본'], []] + cells + [['합계', None, '#N/A']]}, hidden={'숨김'})
+    book = call('read_workbook', data=base64.b64encode(data).decode())
+    assert book['sheet'] == '데이터' and book['sheets'] == ['설명', '데이터'], 'hidden sheets are left out and the first sheet with a table is read'
+    seen = datasets.inspect(book['csv'])
+    assert seen['rows'] == 1500 and seen['mapping']['treatment'] == '그룹' and seen['mapping']['outcome'] == '구매여부' and seen['mapping']['cost'] == '쿠폰비용'
+    csv_data = datasets.parse(korean_log(1500), seen['mapping'])
+    xlsx_data = datasets.parse(book['csv'], seen['mapping'])
+    assert np.array_equal(csv_data.X, xlsx_data.X) and np.array_equal(csv_data.t, xlsx_data.t) and np.array_equal(csv_data.y, xlsx_data.y) and np.array_equal(csv_data.cost, xlsx_data.cost)
+    assert tables.workbook(data, '설명')['sheet'] == '설명'
+    with pytest.raises(ValueError, match='없어요'):
+        tables.workbook(data, '없는 시트')
+    with pytest.raises(ValueError, match='엑셀 파일을 열지 못했어요'):
+        tables.workbook(b'not a zip file')
+    path = tmp_path / '쿠폰실험.xlsx'
+    path.write_bytes(data)
+    assert tables.load(path)[1] == '데이터'
+    with pytest.raises(ValueError, match='97-2003'):
+        tables.load(tmp_path / 'old.xls')
+
+
+def test_a_workbook_saved_by_a_spreadsheet_app_keeps_its_stored_values():
+    """openpyxl writes what Excel writes: number formats, dates and inline strings. A cell keeps its stored value."""
+    openpyxl = pytest.importorskip('openpyxl')
+    import datetime
+    from upliftlab import tables
+    book = openpyxl.Workbook()
+    sheet = book.active
+    sheet.append(['쿠폰지급', '구매금액', '가입일', '메모'])
+    for i in range(1200):
+        sheet.append([i % 2, 12000.5 + i, datetime.date(2024, 1, 1) + datetime.timedelta(days=i % 30), f'메모 {i}'])
+        sheet.cell(row=i + 2, column=2).number_format = '#,##0'
+    out = io.BytesIO()
+    book.save(out)
+    header, body = datasets.read(tables.workbook(out.getvalue())['csv'])
+    assert header == ['쿠폰지급', '구매금액', '가입일', '메모'] and body[0][:2] == ['0', '12000.5'] and body[0][3] == '메모 0'
+    assert datasets._number(body[0][2]) == 45292, 'a date stays Excel’s day number, which works as a covariate'
+
+
+def test_the_command_line_reads_an_excel_file_and_says_which_columns_it_used(tmp_path):
+    from upliftlab import tables
+    from upliftlab.__main__ import columns_used
+    path = tmp_path / 'log.csv'
+    path.write_bytes(korean_log(1200).replace('₩', '￦').encode('cp949'))
+    text, sheet = tables.load(path)
+    seen = datasets.inspect(text)
+    lines = columns_used(seen, bridge.add_dataset('upload/cli', text, path.name, seen['mapping'])['mapping'], sheet)
+    assert lines[0] == '1,200 rows' and '그룹 (대조군=0, 실험군=1)' in lines[1] and '구매여부' in lines[1]
+    assert '고객ID (looks like an ID)' in lines[-1] and '쿠폰사용여부 (same value for every control row)' in lines[-1] and '구매금액 (moves with the outcome)' in lines[-1]
+
+
 def test_algorithm_files_import_only_common_libraries():
     """Built-ins and templates are files a data scientist can copy anywhere: no engine imports, nothing hidden."""
     imports = lambda code: {n.split('.')[0] for node in ast.walk(ast.parse(code)) for n in ([x.name for x in node.names] if isinstance(node, ast.Import) else [node.module or ''] if isinstance(node, ast.ImportFrom) else [])}  # noqa: E731
